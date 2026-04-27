@@ -1,4 +1,4 @@
-# Secrets & credentials — NEVER commit these
+# Secrets & credentials 
 .env
 .env.*
 !.env.example
