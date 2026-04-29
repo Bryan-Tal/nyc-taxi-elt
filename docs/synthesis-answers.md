@@ -84,8 +84,15 @@ The two layers protect against compromise in **opposite directions** — that's 
 
 #### Bryan's answer — 8.5/10 ✓
 
-> Having 4 schemas goes back into the medallion architecture: RAW represents the data as-ingested. STAGING represents the data that has been cleaned and typed. MARTS represents the production-level data that is aggregated and modeled. SNAPSHOTS represents a development environment.
-> [...] Analysts, and engineers may both be able to access STAGING, but an Engineer may have write permissions whereas an Analyst may just have read permissions. Stakeholders should only have read permissions to query the production-level data.
+> Having 4 schemas goes back into the medallion architecture:
+> RAW represents the data as-ingested.
+> STAGING represents the data that has been cleaned and typed.
+> MARTS represents the production-level data that is aggregated and modeled.
+> SNAPSHOTS represents a development environment.
+> Given that each schema represents the same dataset at a different stage of the data lifecycle, the table suggestion does not work.
+> One of the points of the 4 schema system is that it is easier to assign access roles to the schemas. Not everybody needs to be able to access the same data in the same way:
+> Analysts, and engineers may both be able to access STAGING, but an Engineer may have write permissions whereas an Analyst may just have read permissions.
+> Stakeholders should only have read permissions to query the production-level data.
 
 | Dimension | Score |
 |---|---|
@@ -117,7 +124,7 @@ The four schemas exist because schemas are a **permission boundary, retention bo
 
 #### Bryan's answer — 6.5/10
 
-> When I run docker compose up -d, it searches the directory for the docker-compose.yaml file. docker then runs the apache airflow image using the custom environment [...] the 'volumes' section acts more as a bind mount: it connects my host path(s) into the docker container. [...] the second 'volumes' section confirms the connection between airflow and the postgres database.
+> From what I understand, when I run docker compose up -d, it searches the directory for the docker-compose.yaml file. docker then runs the apache airflow image using the custom environment, one parameter being AIRFLOW__DATABASE__SQL_ALCHEMY_CONN:postgresql+psycopg2://airflow:airflow@postgres/airflow. This parameter connects airflow to a postgres database running in a docker container. This parameter also provides the username, password, and database that will be accessed. Moving down the docker-compose.yaml file, we can determine that each the 'volumes' section acts more as a bind mount: it connects my host path(s) into the docker container. Continuing down, this appears to be contingent on whether or not the postgres service is healthy. This runs an image of postgres on docker, using the same credentials used to access airflow. Lastly the second 'volumes' section confirms the connection between airflow and the postgres database.
 
 | Dimension | Score |
 |---|---|
@@ -159,7 +166,10 @@ If you deleted the `volumes:` block:
 
 #### Bryan's answer — 7.5/10
 
-> Setting AUTO_SUSPEND = 60 [...] Setting WAREHOUSE_SIZE = XSMALL [...] If this were a production system with 100 concurrent analysis attempting to run, we would change the AUTO_SUSPEND to be as short as possible, in order to save on idle compute costs.
+> Setting AUTO_SUSPEND = 60 is made so the warehouse stops billing after a set number of seconds after the last query was executed, in this case 60. If this is not set, then the warehouse will keep charging the user's account even though no queries are being executed.
+> Setting WAREHOUSE_SIZE = XSMALL is due to the relative scale of my project. As each size doubles in cost and compute, setting this parameter to XSMALL prevents oversized compute costs to pile up from having a larger Warehouse size, we are using more than the necessary resources (e.g. compute) in order to complete this task.
+> Production Scenario:
+> If this were a production system with 100 concurrent analysis attempting to run, we would change the AUTO_SUSPEND to be as short as possible, in order to save on idle compute costs. This is because depending on the resources we need, we would scale up our WAREHOUSE_SIZE = LARGE(+). Using AUTO_SUSPEND and AUTO_RESUME in this instance would help save costs by suspending quickly after executing the last query, and resuming relatively quickly after the next query is queued.
 
 | Dimension | Score |
 |---|---|
@@ -196,7 +206,22 @@ Your instinct was "shorter AUTO_SUSPEND saves more." Actually, the trade-off fli
 
 #### Bryan's answer — 5.5/10
 
-> Snowflake: ELT_ROLE [...] ELT_USER [...] IAM User [...] Principal: AWS [...] AWS S3 Bucket: IAM user nyc-taxi-elt-user
+> Snowflake:
+> Roles:
+>
+> * ELT_ROLE: Can access all of the Medallion architecture. Dedicated role for the ELT pipeline
+> * ELT_USER: Dedicated user for the ELT pipeline
+>
+> * IAM User
+>    * Provides credentials that we can insert into the IAM trust policy in order to connect to the Storage Integration.
+>    * Can use ListBucket and GetObject.
+> * Principal:
+>    * AWS: Can send the sts API call AssumeRole in order to take on the IAM role's permissions.
+>
+> AWS S3 Bucket:
+>
+> * IAM user nyc-taxi-elt-user
+>    * Has read and write permissions, granted by the IAM permissions policy. Can also use ListBucket and GetObject as well as GetBucket, PutObject and DeleteObject.
 
 | Dimension | Score |
 |---|---|
@@ -231,7 +256,13 @@ This is the same shape as Gap #3 (Functional vs Access role labeling): getting s
 
 #### Bryan's answer — 7.5/10
 
-> I would first look at CloudTrail [...] AssumeRole hands over temporary credentials and they could have expired on the 8th day [...] The IAM permissions/trust policy may have changed due to a data leak.
+> I would first look at CloudTrail in order to determine if the authentication failure is the root cause. It would help determine if any of the following are the issue:
+>
+> * AssumeRole hands over temporary credentials and they could have expired on the 8th day.
+>
+> * The IAM permissions/trust policy may have changed due to a data leak, and may be the reason we are having this issue.
+>
+> I believe a likely root cause would be AssumeRole's credentials expiring, the STS API would have to issue a new set of credentials: temp access key ID, secret access key, and session token.
 
 | Dimension | Score |
 |---|---|
@@ -264,7 +295,8 @@ CloudTrail-first is correct — that's the senior instinct. But the 8-day patter
 
 #### Bryan's answer — 8.5/10 ✓
 
-> My colleague is most likely missing a .env file, it is not tracked by git as it is listed in the .gitignore file [...]
+> My colleague is most likely missing a .env file, it is not tracked by git as it is listed in the .gitignore file, this is why my repo would not have caught this in a code review.
+> Not having the .env file means they do not have access to any credentials associated with the project.
 
 | Dimension | Score |
 |---|---|
@@ -296,7 +328,8 @@ Gitignored `.env` + committed `.env.example` is the **12-Factor App** pattern. N
 
 #### Bryan's answer — 7.5/10
 
-> This may be a quirk of the Snowflake worksheet [...] there may be some type of role or schema change that was run prior [...] you can first determine if you have the appropriate role for what you are doing by running SELECT CURRENT_ROLE().
+> This may be a quirk of the Snowflake worksheet, as it does not run all queries at once. In this context, there may be some type of role or schema change that was run prior to running  LIST @NYC_TAXI.RAW.NYC_TAXI_STAGE/yellow/. You may be in the wrong role and have the wrong permission, or be in the wrong schema and cannot access that object namespace from where you are.
+> If it is a role issue, you can first determine if you have the appropriate role for what you are doing by running SELECT CURRENT_ROLE().
 
 | Dimension | Score |
 |---|---|
@@ -333,7 +366,16 @@ Session state is invisible global mutable state. Always check it first when "the
 
 #### Bryan's answer — 8.5/10 ✓
 
-> [Multi-paragraph defense covering IAM role, storage integration, schema separation, and RBAC, each with a stated risk]
+> Separate IAM role: We use an IAM role as it has no long-term credentials, this role can be assumed by a trusted principal and receive temporary credentials. Eliminates the need to hard code credentials anywhere.
+> Risk: Using an IAM user, for instance, would be less secure as their credentials do not rotate automatically.
+
+> Storage Integration: We use storage integration because it uses STS's API call AssumeRole in order for a principal to take on the permissions of an IAM role. They receive a temp access key ID, secret access key, and session token. We prefer this way as the keys are temporary and rotate often.
+> Risk: If there's AWS keys hardcoded in a stage, a DDL leak could leak these keys in Snowflake's metadata.
+
+> Multiple Snowflake Schemas: We prefer to have the medallion architecture for representing the dataset at different parts of the dev cycle. As such, there should be some users who should have more permissions than others. For instance, data engineers having read/write for most schemas while stakeholders have read privileges for the MART schema, which consists of production-ready, aggregated, modeled data.
+> Risk: Not having this architecture and having each schema represented as a single schema gives users access to the full dataset, freely being able to write and change things.
+
+> RBAC: ACCOUNTADMIN should only be used to grant roles to users. We use the RBAC model because even ACCOUNTADMIN cannot access certain things without being given the proper role. Permissions are attached to roles. This goes back to the principle of least privilege, a user who is analyzing data does not need full access, which they would have with the ACCOUNTADMIN role.
 
 | Dimension | Score |
 |---|---|
