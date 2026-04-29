@@ -12,17 +12,17 @@
 | ◇ | Applied in project (used in code/config, not just discussed) |
 | ★ | Interview-ready (can explain + apply + discuss trade-offs) |
 
-**Last updated:** 2026-04-29 (end of Phase 0)
+**Last updated:** 2026-04-29 (post Phase 0 synthesis drill grading)
 
 ---
 
 ## Summary
 
 - **Total items tracked:** 90+
-- **☑ Theory learned:** 8
+- **★ Interview-ready:** 4 *(Git workflows, Medallion architecture, Snowflake RBAC patterns, IAM principles)*
+- **☑ Theory learned:** 5
 - **◐ In progress:** 7
-- **★ Interview-ready:** 0 (need to ship Project 1 first)
-- **Current phase:** Project 1, Phase 1 (Data Source & Exploration)
+- **Current phase:** Project 1, Phase 1 (Data Source & Exploration) — pending re-drill of Q2/Q4/Q6 to clear Phase 0
 
 ---
 
@@ -35,7 +35,7 @@
 - ☐ PySpark fundamentals: DataFrames, transformations vs. actions, lazy evaluation
 - ☐ PySpark optimization: partitioning, broadcast joins, caching, skew handling
 - ☐ Shell/Bash scripting for pipeline glue
-- ☑ Git workflows: branching, PRs, rebasing, resolving conflicts
+- ★ Git workflows: branching, PRs, rebasing, resolving conflicts *(promoted from ☑ via Phase 0 Q8 — 8.5/10)*
 - ☐ Unit testing with `pytest`; testing data pipelines (great_expectations, dbt tests)
 - ☐ Logging, error handling, retry logic, idempotency in pipelines
 - ☐ Scala basics (optional but valued for Spark-heavy shops)
@@ -63,7 +63,7 @@
 - ☐ Slowly Changing Dimensions (Type 1, 2, 3, 6)
 - ☐ Data Vault 2.0 basics (hubs, links, satellites)
 - ☐ One Big Table (OBT) and when it beats star schemas
-- ☑ Medallion architecture (bronze/silver/gold) — *applied as schemas in Phase 0*
+- ★ Medallion architecture (bronze/silver/gold) — *applied as schemas in Phase 0; promoted via Phase 0 Q3 — 8.5/10*
 - ☐ Data contracts and schema evolution
 - ☐ Surrogate keys vs. natural keys
 
@@ -74,7 +74,7 @@
 - ☑ Snowflake: architecture (storage/compute separation, micro-partitions, virtual warehouses)
 - ☐ Snowflake features: Time Travel, Zero-Copy Cloning, Streams, Tasks, Snowpipe
 - ☑ Snowflake cost management: warehouse sizing, auto-suspend, resource monitors
-- ☑ Snowflake RBAC patterns: functional vs access roles *(can explain; some labeling refinement needed — see Gaps Log)*
+- ★ Snowflake RBAC patterns: functional vs access roles *(promoted from ☑ via Phase 0 Q10 — 8.5/10; defended design choices clearly)*
 - ☐ BigQuery fundamentals (slots, partitioning, clustering)
 - ☐ Redshift fundamentals
 - ☐ Databricks Lakehouse / Delta Lake: ACID on object storage, OPTIMIZE, Z-ORDER
@@ -110,7 +110,7 @@
 ## Pillar 7 — Cloud Computing
 
 - ☐ Cloud fundamentals: IaaS vs. PaaS vs. SaaS, regions, AZs
-- ☑ IAM principles: least privilege, roles, policies, service accounts
+- ★ IAM principles: least privilege, roles, policies, service accounts *(promoted from ☑ via Phase 0 Q10 — 8.5/10)*
 - ☐ Networking basics: VPCs, subnets, security groups, private endpoints
 
 ### AWS
@@ -181,7 +181,7 @@ Concepts where understanding is incomplete or imprecise. Updated as gaps are ide
 
 | Phase | Completed | Synthesis drill avg | Key deliverable |
 |---|---|---|---|
-| 0 — Platform Foundation | 2026-04-29 | *(in progress)* | Working Snowflake + AWS + Airflow stack on GitHub |
+| 0 — Platform Foundation | 2026-04-29 | 7.45/10 (re-drill pending Q2/Q4/Q6) | Working Snowflake + AWS + Airflow stack on GitHub |
 | 1 — Data Source & Exploration | — | — | — |
 | 2 — Ingestion Layer | — | — | — |
 | 3 — dbt Transformations | — | — | — |
