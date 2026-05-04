@@ -21,11 +21,21 @@
 | Senior-depth language (naming AWS API actions, Snowflake primitives by exact term) | Phase 0 Q5 | 3x in Phase 0 | Knows the concepts; doesn't always reach for the precise term |
 | *(more patterns added as they emerge)* | | | |
 
+## Strong Patterns Worth Reinforcing
+
+*Track positive patterns demonstrating senior-engineer instincts. These are habits to keep.*
+
+| Pattern | First seen | Notes |
+|---|---|---|
+| Self-directed consolidation | Q-Re-2 (Phase 0 re-drill) | When a concept came in below threshold, Bryan paused for a deliberate consolidation session before re-attempting — slowing down to actually understand rather than memorize. Drove a +2.0 score improvement (6.5 → 8.5) on the same question with a different scenario. This is a senior-engineer instinct. |
+
 ---
 
 ## Phase 0 — Hardest Questions
 
-*Drill date: 2026-04-29 — Final average: 7.45/10 (below 8.0 threshold; re-drill required for Q2/Q4/Q6)*
+*Drill date: 2026-04-29 — Original average: 7.45/10. Re-drill in progress.*
+
+### Original drill
 
 | Q# | Score | Why it was hard | Key takeaway |
 |---|---|---|---|
@@ -40,14 +50,21 @@
 | Q9 | 7.5/10 | Right category (session state) but only named one of four state values | Always check ALL four: ROLE, DATABASE, SCHEMA, WAREHOUSE |
 | Q10 | 8.5/10 ✓ | Strong technical defenses; light on the "interview signal" angle | Part (b) of design-defense questions matters as much as part (a) |
 
+### Re-drill
+
+| Q# | Score | Why it was hard | Key takeaway |
+|---|---|---|---|
+| Q-Re-1 | (pending) | (pending) | (pending) |
+| Q-Re-2 | 8.5/10 ✓ (was 6.5) | Required mapping the six-layer config cascade explicitly to fix the layer-confusion from the original | Configuration values cascade through layers (file → tool → process → consumer). Debugging means walking the chain backward. |
+| Q-Re-3 | (pending) | (pending) | (pending) |
+
 ### Self-reflection notes (to be filled in by Bryan)
 
 *Pick the 2-3 questions that felt hardest in the moment and add a one-line note on what made them hard. This grows the personal pattern map over time.*
 
-- Q1: Having the first question force me to bring everything together was daunting. 
-- Q4: Determining how docker and postgres communicate felt daunting at first. For this I had to look up what a connection string is, and struggled a little with volumes, containers and images. Will brush up on this before tackling next time.
-- Q6: Naming each identity is something I'm having a good amount of trouble with, will look more into this. 
-
+- Q__:
+- Q__:
+- Q__:
 
 ---
 

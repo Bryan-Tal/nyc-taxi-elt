@@ -19,10 +19,10 @@
 ## Summary
 
 - **Total items tracked:** 90+
-- **★ Interview-ready:** 4 *(Git workflows, Medallion architecture, Snowflake RBAC patterns, IAM principles)*
-- **☑ Theory learned:** 5
+- **★ Interview-ready:** 6 *(Git workflows, Medallion architecture, Snowflake RBAC patterns, IAM principles, Docker, Docker Compose)*
+- **☑ Theory learned:** 3
 - **◐ In progress:** 7
-- **Current phase:** Project 1, Phase 1 (Data Source & Exploration) — pending re-drill of Q2/Q4/Q6 to clear Phase 0
+- **Current phase:** Project 1, Phase 1 (Data Source & Exploration) — pending Q-Re-1 and Q-Re-3 to clear Phase 0 re-drill
 
 ---
 
@@ -135,8 +135,8 @@
 
 ## Pillar 8 — Infrastructure & DevOps for Data
 
-- ☑ Docker: images, containers, Dockerfiles, volumes, networks
-- ☑ Docker Compose for local data stacks
+- ★ Docker: images, containers, Dockerfiles, volumes, networks *(promoted from ☑ via Phase 0 Q-Re-2 — 8.5/10; consolidated Compose templating model)*
+- ★ Docker Compose for local data stacks *(promoted from ☑ via Phase 0 Q-Re-2 — 8.5/10; consolidated six-layer config cascade)*
 - ☐ Kubernetes fundamentals: pods, deployments, services
 - ☐ Terraform: providers, resources, state, modules
 - ☐ CI/CD for data: GitHub Actions for dbt, Airflow DAGs, Terraform

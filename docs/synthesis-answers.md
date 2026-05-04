@@ -368,13 +368,10 @@ Session state is invisible global mutable state. Always check it first when "the
 
 > Separate IAM role: We use an IAM role as it has no long-term credentials, this role can be assumed by a trusted principal and receive temporary credentials. Eliminates the need to hard code credentials anywhere.
 > Risk: Using an IAM user, for instance, would be less secure as their credentials do not rotate automatically.
-
 > Storage Integration: We use storage integration because it uses STS's API call AssumeRole in order for a principal to take on the permissions of an IAM role. They receive a temp access key ID, secret access key, and session token. We prefer this way as the keys are temporary and rotate often.
 > Risk: If there's AWS keys hardcoded in a stage, a DDL leak could leak these keys in Snowflake's metadata.
-
 > Multiple Snowflake Schemas: We prefer to have the medallion architecture for representing the dataset at different parts of the dev cycle. As such, there should be some users who should have more permissions than others. For instance, data engineers having read/write for most schemas while stakeholders have read privileges for the MART schema, which consists of production-ready, aggregated, modeled data.
 > Risk: Not having this architecture and having each schema represented as a single schema gives users access to the full dataset, freely being able to write and change things.
-
 > RBAC: ACCOUNTADMIN should only be used to grant roles to users. We use the RBAC model because even ACCOUNTADMIN cannot access certain things without being given the proper role. Permissions are attached to roles. This goes back to the principle of least privilege, a user who is analyzing data does not need full access, which they would have with the ACCOUNTADMIN role.
 
 | Dimension | Score |
@@ -412,6 +409,76 @@ The conceptual understanding is solid — no question revealed a missing concept
 1. **Answer completeness** — addressing every part of multi-part questions, not just the part you're most confident on
 2. **Vocabulary precision on layered systems** — distinguishing roles vs principals vs identities, integration vs stage, image vs container, etc.
 3. **Pushing answers to senior depth** — naming AWS API calls, citing specific Snowflake primitives (multi-cluster warehouses, Time Travel), articulating both directions of a defense-in-depth argument
+
+---
+
+### Phase 0 Re-drill Answers
+
+*Triggered by 7.45/10 average on original drill. Re-drill targets the lowest-scoring originals using fresh scenarios on the same concepts.*
+
+---
+
+#### Q-Re-2 — Docker composition (re-drill of original Q4)
+
+**The question:**
+> Your `docker-compose.yaml` includes the line `_PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}` in the airflow-common environment. Walk me through: (a) what this line does, (b) where the value comes from, (c) when in the container lifecycle the packages get installed, and (d) why this approach is dev-only and what the production replacement would be.
+
+##### Bryan's first attempt — 6.5/10
+
+> a. _PIP_ADDITIONAL_REQUIREMENTS installs the included packages whenever a container is started, which is convenient for development.
+> b. it comes from the apache/airflow:2.10.3-python3.11 image which is pulled if not already cached.
+> c. _PIP_ADDITIONAL_REQUIREMENTS is part of the environment variables, which are injected at runtime.
+> d. As mentioned in part a, _PIP_ADDITIONAL_REQUIREMENTS installs every time a container is started, however a production environment would prefer a custom Dockerfile that extends apache/airflow:<version> with python already embedded. This approach is fast and reproducible.
+
+**Key gap:** Part (b) attributed the value to the image (incorrect — image is the consumer, not the source). Parts (a) and (c) imprecise on layering. Triggered a consolidation session before re-attempt.
+
+##### Bryan's re-attempt — 8.5/10 ✓
+
+> a. This line is a shell variable that is substituted by our current environment's variable in the .env file once docker compose loads up the .yaml file.
+> b. This value comes from the .env file which is loaded up by docker compose. It is then substituted into the .yaml file during compose-load time.
+> c. The packages get passed on container-load time, and the pip install actually occurs on container-boot time.
+> d. This approach is dev only as the pip install occurs during container-boot time via airflow's entry point script. A production approach would include adding a custom Dockerfile with Python already baked in, ensuring reproducibility.
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 9/10 | All four parts correct in substance. One small carryover — "Python baked in" should be "additional packages baked in"; Python is in the base image. |
+| Conceptual Depth | 8/10 | Layer-naming crisp throughout; substantial improvement over original |
+| Vocabulary Precision | 9/10 | "Compose-load time," "container-boot time," "shell variable substitution" — all used correctly |
+| Trade-off Awareness | 8/10 | Production replacement named with right reasoning |
+
+**Improvement vs first attempt: 6.5 → 8.5 (+2.0).** Major correction on (b), precision gain on (c), tighter reasoning chain on (d). Triggered by self-directed consolidation session that explicitly mapped the six-layer config cascade.
+
+##### Model answer (9/10)
+
+The line is a **YAML key-value pair** that declares an environment variable for the container, with the value populated via shell-style substitution from the host environment.
+
+(a) **What the line does:** Sets `_PIP_ADDITIONAL_REQUIREMENTS` as an env var inside the future container. The right-hand side `${_PIP_ADDITIONAL_REQUIREMENTS:-}` uses shell-style parameter expansion: take the host's value, or default to empty string if unset.
+
+(b) **Where the value comes from:** Compose auto-loads `.env` from the directory you ran `docker compose up` in (Compose convention, not shell). If `.env` defines `_PIP_ADDITIONAL_REQUIREMENTS=...`, that value is what Compose substitutes. If `.env` is missing or doesn't define it, the `:-` provides an empty-string default. The image is *not* the source — it's the consumer.
+
+(c) **When in the lifecycle:** Three distinct moments:
+1. **Compose-load time:** YAML is read; `${VAR:-}` substitution resolves against host environment
+2. **Container-create time:** resolved env var attached to the container
+3. **Container-boot time:** Airflow's entrypoint script (`airflow-entrypoint.sh`) reads the env var and runs `pip install` on every boot
+
+The boot-time install is what makes this slow on every restart.
+
+(d) **Why dev-only and the production replacement:** Boot-time install means every restart re-downloads and re-installs. Slow, fragile (network/dependency resolution can fail), and not reproducible across machines. Production replacement is a **custom Dockerfile**:
+
+```dockerfile
+FROM apache/airflow:2.10.3-python3.11
+COPY requirements.txt /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
+```
+
+Packages bake into a new image layer at *build time*. Container starts skip the install entirely.
+
+##### Key lessons
+
+1. **Configuration cascades through layers.** When tracing where a value "comes from," walk the chain backward: consumer → tool → file. Each layer reads from the previous.
+2. **`.env` is a Compose convention, not a shell convention.** `echo $VAR` in your shell can't see what Compose can see. Different processes read from different places.
+3. **Three timing moments matter:** compose-load, container-create, container-boot. Naming them precisely makes the dev-only nature obvious — boot-time work runs every restart.
+4. **Production-grade Docker bakes config at build time.** Runtime config is for *behavioral* settings; package installs belong in the image itself.
 
 ---
 
