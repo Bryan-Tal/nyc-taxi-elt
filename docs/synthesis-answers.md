@@ -50,6 +50,9 @@
 
 ### Q2 — Why two layers of access control
 
+**The question:**
+> You configured both `STORAGE_ALLOWED_LOCATIONS` on the Snowflake integration *and* an IAM permissions policy on the AWS role. Why both? What does each one protect against that the other doesn't? Give a concrete failure scenario where one layer saves you and the other wouldn't.
+
 #### Bryan's answer — 7.0/10
 
 > We configure STORAGE_ALLOWED_LOCATIONS on the snowflake integration in order to prevent an over-permissioned IAM role from being misused via Snowflake. We also configure an IAM permissions policy in order to authorize what the assumed role is able to do.
@@ -81,6 +84,9 @@ The two layers protect against compromise in **opposite directions** — that's 
 ---
 
 ### Q3 — Medallion separation
+
+**The question:**
+> Your Snowflake database has four schemas: RAW, STAGING, MARTS, SNAPSHOTS. A junior engineer asks, "Why not just put everything in one schema and use table prefixes like `raw_trips`, `staging_trips`, `marts_trips`?" Defend the four-schema design. Mention at least three concrete advantages — at least one related to security, at least one related to lifecycle/retention.
 
 #### Bryan's answer — 8.5/10 ✓
 
@@ -121,6 +127,9 @@ The four schemas exist because schemas are a **permission boundary, retention bo
 ---
 
 ### Q4 — Docker + Airflow + repo
+
+**The question:**
+> Walk through what happens at the moment you run `docker compose up -d` from your repo root. Specifically: how does the code in your `airflow/dags/` directory end up executable inside the running container? How does the Postgres metadata DB connect to the Airflow services? What would break if you deleted the `volumes:` block from `docker-compose.yaml`?
 
 #### Bryan's answer — 6.5/10
 
@@ -164,6 +173,9 @@ If you deleted the `volumes:` block:
 
 ### Q5 — Cost as architecture
 
+**The question:**
+> The decisions to put Snowflake and S3 in the same AWS region, set `AUTO_SUSPEND = 60`, and pick `WAREHOUSE_SIZE = XSMALL` are all cost-related. Explain *each* decision in terms of what it specifically prevents. Then describe what would change about each decision if this were a production system serving 100 concurrent analysts instead of one.
+
 #### Bryan's answer — 7.5/10
 
 > Setting AUTO_SUSPEND = 60 is made so the warehouse stops billing after a set number of seconds after the last query was executed, in this case 60. If this is not set, then the warehouse will keep charging the user's account even though no queries are being executed.
@@ -203,6 +215,9 @@ Your instinct was "shorter AUTO_SUSPEND saves more." Actually, the trade-off fli
 ---
 
 ### Q6 — Identity enumeration
+
+**The question:**
+> In your Phase 0 setup, list every distinct *identity* (human or service) that exists across both AWS and Snowflake. For each identity, name what it can do and what *grants* or *policies* control that. The point of this question is to force you to enumerate the cast of characters and not conflate them.
 
 #### Bryan's answer — 5.5/10
 
@@ -254,6 +269,9 @@ This is the same shape as Gap #3 (Functional vs Access role labeling): getting s
 
 ### Q7 — Failure scenario A (8-day Access Denied)
 
+**The question:**
+> You schedule a daily Airflow DAG to run `COPY INTO` from your S3 stage at 3 AM. It works for a week, then on day 8 it fails with `Access Denied (403) retrieving information from the bucket`. Nothing in your code or configuration has changed. Walk through your debugging process: what do you check first, second, third, and what's a likely root cause that fits the pattern?
+
 #### Bryan's answer — 7.5/10
 
 > I would first look at CloudTrail in order to determine if the authentication failure is the root cause. It would help determine if any of the following are the issue:
@@ -293,6 +311,9 @@ CloudTrail-first is correct — that's the senior instinct. But the 8-day patter
 
 ### Q8 — Failure scenario B (colleague clones repo)
 
+**The question:**
+> A colleague clones your `nyc-taxi-elt` repo, runs `docker compose up airflow-init`, and immediately gets an error in the init container before any Airflow code runs. They've installed Docker and have a working internet connection. What's the most likely missing piece, and why would your repo not have caught this in code review?
+
 #### Bryan's answer — 8.5/10 ✓
 
 > My colleague is most likely missing a .env file, it is not tracked by git as it is listed in the .gitignore file, this is why my repo would not have caught this in a code review.
@@ -325,6 +346,9 @@ Gitignored `.env` + committed `.env.example` is the **12-Factor App** pattern. N
 ---
 
 ### Q9 — Failure scenario C (LIST works, then doesn't)
+
+**The question:**
+> You run `LIST @NYC_TAXI.RAW.NYC_TAXI_STAGE/yellow/` in Snowflake and it returns a list of files successfully. Five minutes later, you run the *exact same* query and get an error. Network connectivity is fine. The integration hasn't been edited. What changed, and how would you confirm it without touching AWS?
 
 #### Bryan's answer — 7.5/10
 
@@ -363,6 +387,9 @@ Session state is invisible global mutable state. Always check it first when "the
 ---
 
 ### Q10 — Design defense
+
+**The question:**
+> A senior engineer reviews your Phase 0 setup and says: "This is overengineered for a personal project. You don't need a separate IAM role, a storage integration, multiple Snowflake schemas, or RBAC. Just put your AWS keys directly in a stage and use `ACCOUNTADMIN` for everything." Defend your choices. For *each* choice they criticized, explain (a) what concrete risk the simpler version exposes you to, and (b) what skill or interview-relevant signal the proper version demonstrates.
 
 #### Bryan's answer — 8.5/10 ✓
 
