@@ -509,6 +509,43 @@ Packages bake into a new image layer at *build time*. Container starts skip the 
 
 ---
 
+#### Q-Re-3 — Defense-in-depth (re-drill of original Q2)
+
+**The question:**
+> Your local `.env` file contains AWS access keys for the `nyc-taxi-elt-user` IAM user. The `.env` is gitignored and stays on your laptop. Despite this, your repo also enforces a permissions policy on the `nyc-taxi-elt-user` IAM user that scopes it to the single bucket. **Why both?** What does the `.env` gitignore protect against that the IAM permissions policy doesn't, and vice versa? Give a concrete failure scenario for each.
+
+##### Bryan's answer — 8.0/10 ✓
+
+> The .env file being gitignored protects against confidential Access Keys from leaking onto a public repository. If these keys were to leak, the IAM user could become compromised, as their credentials do not rotate automatically.
+> The IAM permissions policy protects a compromised IAM user from gaining access to all buckets the role can access. With the permissions policy in place, S3 will deny any requests for bucket access outside of the given scope.
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 9/10 | Both directions of defense-in-depth correctly identified |
+| Conceptual Depth | 8/10 | Bidirectional reasoning is now there; depth could go further on the *failure mode each defense allows* |
+| Vocabulary Precision | 8/10 | "IAM permissions policy," "credentials do not rotate," "scope" all used correctly |
+| Trade-off Awareness | 7/10 | Implicit understanding of layered defense; could explicitly name the threat surface |
+
+**Improvement vs original Q2: 7.0 → 8.0 (+1.0).** Crucial gap closed: original Q2 answered defense-in-depth in only one direction; Q-Re-3 articulates both directions cleanly with a concrete failure consequence on each side.
+
+##### Model answer (9/10)
+
+The two layers protect against compromise in **opposite directions**:
+
+- **Gitignore (host-side / VCS layer):** prevents the credentials from ever leaving the laptop. Threat scenario: I commit in a hurry without running `git status`. If `.env` weren't gitignored, the file is staged and pushed. Within minutes, GitHub's credential-scanning bots find the keys and exfiltrate them. *The IAM policy can't help here — the keys are real, the role is real; the only defense was preventing the file from entering version control.*
+
+- **IAM permissions policy (cloud-side / authorization layer):** limits blast radius when keys *do* leak (via any vector — disk theft, shoulder-surfing, malware on the laptop, leaked screen recording, social engineering). Threat scenario: I lose my laptop. Someone extracts `.env` from the disk and authenticates as `nyc-taxi-elt-user`. They run `aws s3 ls` to enumerate buckets — but every bucket outside `nyc-taxi-elt-<id>/` returns `AccessDenied` because IAM evaluates the policy and rejects the request. *The gitignore can't help here — the keys leaked outside Git entirely.*
+
+The two defenses cover **different threat vectors**: gitignore stops VCS-shaped leaks, the IAM policy contains the damage from any leak that does happen. Together they're defense in depth; either alone leaves a class of incident exposed.
+
+##### Key lessons
+
+1. **Bidirectional reasoning generalizes across layer pairs.** Q2 tested with `STORAGE_ALLOWED_LOCATIONS` + IAM; Q-Re-3 tested with `gitignore` + IAM. Same argument shape, different specifics. The pattern transferred — that's the real signal.
+2. **Concrete failure scenarios beat abstract descriptions.** "What does the defense protect against" is a 7/10 answer; "imagine X happens — here's where defense Y kicks in and here's why defense Z couldn't help" is a 9/10 answer.
+3. **Tiny mechanism nitpick:** the deny on an IAM policy violation is technically issued by IAM's policy evaluation engine, not S3. Common shorthand to say "S3 denies it," but in interviews with senior IAM-aware folks, "IAM evaluates and denies" is the more accurate phrasing.
+
+---
+
 ## Phase 1 — Data Source & Exploration
 
 *Answers will be added as Bryan completes Phase 1's drill.*
