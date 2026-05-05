@@ -29,6 +29,7 @@
 |---|---|---|
 | Self-directed consolidation | Q-Re-2 (Phase 0 re-drill) | When a concept came in below threshold, Bryan paused for a deliberate consolidation session before re-attempting — slowing down to actually understand rather than memorize. Drove a +2.0 score improvement (6.5 → 8.5) on the same question with a different scenario. This is a senior-engineer instinct. |
 | Pattern transfer across scenarios | Q-Re-3 (Phase 0 re-drill) | Bidirectional defense-in-depth argument originally taught with STORAGE_ALLOWED_LOCATIONS + IAM transferred cleanly to gitignore + IAM. Same argument shape applied to different specifics. This signals the underlying mental model has internalized rather than been memorized. |
+| Layer/scope discipline as meta-skill | Across all three Phase 0 re-drills | Q-Re-1 (system cast vs runtime cast), Q-Re-2 (six-layer config cascade), Q-Re-3 (bidirectional defense layers) — all three improvements came from the same meta-skill of separating layers/scopes/directions and naming each precisely. The original drill's recurring "vocabulary precision on layered systems" weakness had a single root cause that the re-drill systematically addressed. |
 
 ---
 
@@ -55,9 +56,15 @@
 
 | Q# | Score | Why it was hard | Key takeaway |
 |---|---|---|---|
-| Q-Re-1 | (pending) | (pending) | (pending) |
+| Q-Re-1 | 7.5/10 ✓ (was 5.5) | Required separating system cast (identities that built/exist in the system) from runtime cast (identities that authenticate during one specific execution); needed Socratic walk to surface | System cast vs runtime cast is the central distinction. At 3 AM when an automated script fires, no human is authenticating — only orchestration components, the script's outbound auth, and any cross-cloud assumed roles. |
 | Q-Re-2 | 8.5/10 ✓ (was 6.5) | Required mapping the six-layer config cascade explicitly to fix the layer-confusion from the original | Configuration values cascade through layers (file → tool → process → consumer). Debugging means walking the chain backward. |
 | Q-Re-3 | 8.0/10 ✓ (was 7.0) | Required articulating bidirectional defense — what each layer protects against AND what threat it doesn't cover | Bidirectional reasoning pattern transferred from STORAGE_ALLOWED_LOCATIONS+IAM to gitignore+IAM — the shape of the argument generalizes across layer pairs |
+
+### Re-drill Verdict
+
+**Average: 8.0/10 ✓** — meets threshold exactly. **Phase 0 cleared.**
+
+Improvement across the three weakest topics: +6.0 points combined (5.5→7.5, 6.5→8.5, 7.0→8.0). Notably, all three improvements came from the *same underlying meta-skill*: separating layers/scopes/directions and naming each precisely. This is not coincidence — it's evidence the recurring weakness pattern from the original drill ("vocabulary precision on layered systems") has a single root cause that the re-drill systematically addressed.
 
 ### Self-reflection notes (to be filled in by Bryan)
 

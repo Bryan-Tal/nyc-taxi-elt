@@ -546,6 +546,94 @@ The two defenses cover **different threat vectors**: gitignore stops VCS-shaped 
 
 ---
 
+#### Q-Re-1 — Identity enumeration (re-drill of original Q6)
+
+**The question:**
+> Imagine you've added a Phase 2 ingestion script that runs *inside* the Airflow container, reads from S3, and writes to Snowflake. Enumerate every distinct identity (human or service) involved in *just one execution* of that script — from the moment Airflow triggers it to the moment data lands in Snowflake. For each identity, name what authenticates it and what authorizes its actions. (At least 6 identities involved; full credit for naming all of them precisely.)
+
+##### Bryan's answer — 7.5/10 ✓ (consolidated through guided dialogue)
+
+**Original answer as submitted:**
+
+> Airflow:
+> - DAG scheduler - authenticated via healthy postgres state
+> - Airflow container - granted access to .env via docker compose
+>
+> Snowflake End:
+> - Human User, granted `ACCOUNTADMIN` AND `ELT_ROLE`
+> - ELT_USER, granted ELT_ROLE
+> - ACCOUNTADMIN: automatically given
+> - ELT_ROLE: granted usage on WH_ELT, ALL on NYC_TAXI schemas, USAGE on integration
+>
+> AWS:
+> - Human user, used for setup
+> - nyc-taxi-elt-user: has access keys in ./aws/credentials; inline policy scoped to bucket
+> - Snowflake's IAM user: the principal that calls AssumeRole
+
+**Consolidated answer after Socratic walk-through:**
+
+The original answer mixed *system cast* (identities that exist and built the system) with *runtime cast* (identities that act during the 3 AM execution). Through guided questioning, the runtime cast was clarified as:
+
+**Airflow side (orchestration layer):**
+1. **`airflow-scheduler` process** — decides when to fire the DAG, spawns the task subprocess (in LocalExecutor setup, scheduler also executes tasks)
+2. **The Python subprocess** — runs the ingestion code, inherits env vars from the container
+
+**Outbound authentications from the script:**
+3. **`nyc-taxi-elt-user`** (IAM user) — when boto3 calls S3
+   - Authenticated via: long-lived access keys from `.env` → environment variables (boto3 credential chain)
+   - Authorized via: inline IAM permissions policy scoped to the bucket
+4. **`ELT_USER`** (Snowflake user, operating as `ELT_ROLE`) — when the script connects to Snowflake
+   - Authenticated via: password from `.env` → environment variables
+   - Authorized via: `ELT_ROLE` granted to the user; role has USAGE on warehouse/database/schemas
+
+**Cross-cloud authentication triggered by COPY INTO:**
+5. **Snowflake's IAM user** (managed by Snowflake) — calls `sts:AssumeRole` with ExternalId
+   - Authorized to assume via: trust policy on `snowflake-s3-role` matching Principal + ExternalId
+6. **`snowflake-s3-role`** (IAM role in your AWS account) — assumed identity
+   - Authenticated via: temporary credentials issued by STS (~1 hour TTL)
+   - Authorized via: permissions policy on the role allowing `s3:ListBucket`, `s3:GetObject` on the bucket
+
+**Dropped from original answer (system cast, not runtime cast):**
+- Human Snowflake user — built the system; not logged in at 3 AM
+- ACCOUNTADMIN — used for setup; not assumed during automated runs
+- AWS root/human user — used for setup; not acting at runtime
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 8/10 | All 6 runtime identities clearly identified after walk-through |
+| Conceptual Depth | 7/10 | The system-vs-runtime distinction needed Socratic scaffolding to surface, but is now explicit |
+| Vocabulary Precision | 7/10 | "Authenticated via healthy postgres state" was imprecise initially; clarified through dialogue |
+| Trade-off Awareness | 8/10 | The architectural insight on AssumeRole (Snowflake never has to be a credential keystore for thousands of customers) went genuinely deeper than the original Q6 ever explored |
+
+**Improvement vs original Q6: 5.5 → 7.5 (+2.0).** The system-cast vs runtime-cast distinction is the key concept that surfaced. Score reflects that the consolidated answer is genuinely there but required guided walking — meaning the model needs more time to fully internalize before being interview-reflexive.
+
+##### Model answer (9/10)
+
+The runtime cast for *one execution* of an automated 3 AM Airflow-triggered ingestion script is **6 identities** (reasonably 5–7 depending on how you count the scheduler+subprocess and the user+role pairings):
+
+**Orchestration:**
+- `airflow-scheduler` process — fires the DAG on schedule; in LocalExecutor it also spawns the task subprocess. Talks to Postgres metadata DB via internal connection; connects to external services only by passing env vars to subprocesses.
+- Python subprocess — inherits env vars from the container; runs the ingestion logic.
+
+**Script's outbound authentications:**
+- `nyc-taxi-elt-user` IAM user — boto3 finds access keys via the credential chain (env vars from `.env` → forwarded by Compose → inherited by subprocess). Authorized by an inline permissions policy scoped to one bucket.
+- `ELT_USER` Snowflake user — `snowflake-connector-python` reads username/password from env. Authenticates via password; once connected, operates with `ELT_ROLE` grants (USAGE on warehouse, ALL on schemas).
+
+**Cross-cloud (COPY INTO triggers):**
+- Snowflake's IAM user (in Snowflake's AWS account, exposed via `STORAGE_AWS_IAM_USER_ARN`) — calls `sts:AssumeRole` on `snowflake-s3-role` with ExternalId. Authorized by the trust policy on `snowflake-s3-role`.
+- `snowflake-s3-role` IAM role — assumed identity. Authenticated via STS-issued temporary credentials (Access Key ID, Secret Access Key, Session Token, ~1 hour TTL). Authorized via permissions policy on the role granting `s3:ListBucket` + `s3:GetObject` on the bucket.
+
+**The distinction that matters:** The runtime cast excludes anything that only acted during system setup. ACCOUNTADMIN, the human Snowflake user, and the AWS root/admin user all built the system but don't authenticate during automated execution. Listing them in a runtime-cast question is a category error.
+
+##### Key lessons
+
+1. **System cast vs runtime cast.** Identities that exist in your system are not the same as identities that authenticate during a specific execution. When asked "who acts during X," apply the filter: at the moment X happens, is this identity actually authenticating to anything?
+2. **Credential cascades determine identity.** The same boto3/snowflake-connector code executed in different environments authenticates as different identities — depending on what's in the env vars at the moment of the call. The cascade pattern from Q-Re-2 directly determines *who* authenticates here.
+3. **AssumeRole as architectural risk transfer.** AssumeRole isn't just about token expiration — it's about Snowflake never having to *store* customer credentials at all. With long-lived keys, Snowflake would carry the breach risk for thousands of customers' AWS accounts. With AssumeRole, Snowflake stores zero customer credentials; a breach yields nothing useful. This is the architectural insight, not just a technical convenience.
+4. **`.env` cascades through six layers to determine runtime identity:** `.env` file → Compose load → YAML substitution → container env → Python subprocess inherits → boto3/snowflake-connector reads. Each layer's job is forwarding; the *value* of who-authenticates-as-what is set at the .env layer.
+
+---
+
 ## Phase 1 — Data Source & Exploration
 
 *Answers will be added as Bryan completes Phase 1's drill.*

@@ -22,7 +22,7 @@
 - **★ Interview-ready:** 6 *(Git workflows, Medallion architecture, Snowflake RBAC patterns, IAM principles, Docker, Docker Compose)*
 - **☑ Theory learned:** 3
 - **◐ In progress:** 7
-- **Current phase:** Project 1, Phase 1 (Data Source & Exploration) — pending Q-Re-1 and Q-Re-3 to clear Phase 0 re-drill
+- **Current phase:** Project 1, Phase 1 (Data Source & Exploration) — **Phase 0 fully cleared (re-drill avg 8.0)**
 
 ---
 
@@ -181,7 +181,7 @@ Concepts where understanding is incomplete or imprecise. Updated as gaps are ide
 
 | Phase | Completed | Synthesis drill avg | Key deliverable |
 |---|---|---|---|
-| 0 — Platform Foundation | 2026-04-29 | 7.45/10 (re-drill pending Q2/Q4/Q6) | Working Snowflake + AWS + Airflow stack on GitHub |
+| 0 — Platform Foundation | 2026-04-29 | Original 7.45/10 → Re-drill 8.0/10 ✓ | Working Snowflake + AWS + Airflow stack on GitHub |
 | 1 — Data Source & Exploration | — | — | — |
 | 2 — Ingestion Layer | — | — | — |
 | 3 — dbt Transformations | — | — | — |
