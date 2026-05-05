@@ -1,6 +1,6 @@
-# Data Engineering Terminal Cheatsheet
+# Data Engineering Tooling Reference
 
-> **Purpose:** Personal reference of useful terminal commands encountered during the Data Engineering project. Organized by topic. Updated as new commands appear.
+> **Purpose:** Living reference for terminal commands, query idioms, and common patterns across the tools in this project. Organized by tool. Updated as new patterns appear.
 >
 > **Platforms covered:**
 > - **macOS** (zsh, default since Catalina)
@@ -12,21 +12,34 @@
 > - `<placeholder>` means "replace with your actual value" (e.g., `<your-bucket-name>`)
 > - `# comments` explain what a command does or when to use it
 > - Commands marked **⚠️ destructive** can't be undone — read carefully before running
+>
+> **Note:** This file was originally `terminal-cheatsheet.md` (Phase 0). Renamed in Phase 1 to reflect broader scope as we added SQL idioms (DuckDB), data tooling, and other non-shell references.
 
 ---
 
 ## Table of Contents
 
+### Shell & System
 1. [Platform Setup (One-Time)](#1-platform-setup-one-time)
 2. [Shell Environment & PATH](#2-shell-environment--path)
-3. [Git & GitHub](#3-git--github)
-4. [Docker & Docker Compose](#4-docker--docker-compose)
-5. [AWS CLI](#5-aws-cli)
-6. [Package Management](#6-package-management)
-7. [Python Environments](#7-python-environments)
-8. [File System & Inspection](#8-file-system--inspection)
-9. [Diagnostic & Network Tools](#9-diagnostic--network-tools)
-10. [Platform-Specific Gotchas](#10-platform-specific-gotchas)
+3. [File System & Inspection](#8-file-system--inspection)
+4. [Diagnostic & Network Tools](#9-diagnostic--network-tools)
+5. [Platform-Specific Gotchas](#10-platform-specific-gotchas)
+
+### Version Control & Containers
+6. [Git & GitHub](#3-git--github)
+7. [Docker & Docker Compose](#4-docker--docker-compose)
+
+### Cloud & Data Tools
+8. [AWS CLI](#5-aws-cli)
+9. [Package Management](#6-package-management)
+10. [Python Environments](#7-python-environments)
+
+### SQL & Data Profiling
+11. [DuckDB SQL Idioms](#11-duckdb-sql-idioms)
+12. [DuckDB ↔ Pandas Equivalencies](#12-duckdb--pandas-equivalencies)
+
+*(Sections renumber as the file grows; the anchors above match the current section headings.)*
 
 ---
 
@@ -530,6 +543,115 @@ cat <file> | clip.exe                      # uses Windows clipboard via interop
 ### Permissions on shared filesystems
 
 🐧 **WSL2:** files created inside `/mnt/c/...` lose Linux permissions on each access. If you see "permission denied" on a script that should be executable, the file is probably on the Windows filesystem. Move it to `/home/...` and the issue disappears.
+
+---
+
+## 11. DuckDB SQL Idioms
+
+DuckDB is an in-process columnar SQL engine — think "SQLite for analytics." It queries Parquet/CSV/JSON files directly without loading them entirely into memory, and its syntax is highly compatible with Snowflake, BigQuery, and Postgres.
+
+### Install
+
+```bash
+# Inside an activated Python venv
+pip install duckdb
+
+# Verify
+python3 -c "import duckdb; print(duckdb.__version__)"
+```
+
+### Query a Parquet file directly (no schema setup, no loading)
+
+```python
+import duckdb
+
+# DuckDB streams chunks of the file through the query engine
+result = duckdb.sql("""
+    SELECT COUNT(*) FROM 'data/raw/yellow_tripdata_2024-01.parquet'
+""")
+print(result)
+```
+
+### Common profiling queries
+
+```python
+# Show schema (column names + types) without reading data rows
+duckdb.sql("DESCRIBE SELECT * FROM 'file.parquet'")
+
+# Summary statistics for every column at once
+duckdb.sql("SUMMARIZE SELECT * FROM 'file.parquet'")
+
+# Row count
+duckdb.sql("SELECT COUNT(*) FROM 'file.parquet'")
+
+# First 10 rows
+duckdb.sql("SELECT * FROM 'file.parquet' LIMIT 10")
+
+# Distinct values in a column
+duckdb.sql("SELECT DISTINCT VendorID FROM 'file.parquet'")
+
+# Count nulls per column (manual but useful pattern)
+duckdb.sql("""
+    SELECT
+        COUNT(*) - COUNT(fare_amount) AS fare_amount_nulls,
+        COUNT(*) - COUNT(passenger_count) AS passenger_nulls
+    FROM 'file.parquet'
+""")
+```
+
+### Querying multiple files at once with glob
+
+```python
+# Read every Yellow Taxi file in a directory at once
+duckdb.sql("""
+    SELECT COUNT(*)
+    FROM 'data/raw/yellow_tripdata_*.parquet'
+""")
+```
+
+DuckDB automatically unions matching files. Powerful for cross-month profiling.
+
+### When to use DuckDB vs other tools
+
+- **Use DuckDB for:** local profiling, ad-hoc analytical queries on Parquet/CSV, lightweight transformation pipelines, anywhere you'd reach for Pandas + a query engine
+- **Don't use DuckDB for:** transactional workloads (use Postgres), distributed computation across many machines (use Spark), production warehouses (use Snowflake/BigQuery)
+
+---
+
+## 12. DuckDB ↔ Pandas Equivalencies
+
+A reference table mapping common Pandas operations to their DuckDB SQL equivalents. Useful when you know one and need to do the same thing in the other.
+
+| Task | DuckDB SQL | Pandas equivalent |
+|---|---|---|
+| Show schema (column types) | `DESCRIBE SELECT * FROM 'file.parquet'` | `df.info()` or `df.dtypes` |
+| Row count | `SELECT COUNT(*) FROM 'file.parquet'` | `len(df)` |
+| First N rows | `SELECT * FROM 'file.parquet' LIMIT 10` | `df.head(10)` |
+| Summary statistics | `SUMMARIZE SELECT * FROM 'file.parquet'` | `df.describe()` |
+| Distinct values in a column | `SELECT DISTINCT col FROM 'file.parquet'` | `df['col'].unique()` |
+| Group by + count | `SELECT col, COUNT(*) FROM 'file.parquet' GROUP BY col` | `df.groupby('col').size()` |
+| Filter rows | `SELECT * FROM 'file.parquet' WHERE col > 100` | `df[df['col'] > 100]` |
+| Select columns | `SELECT col1, col2 FROM 'file.parquet'` | `df[['col1', 'col2']]` |
+| Sort | `SELECT * FROM 'file.parquet' ORDER BY col DESC` | `df.sort_values('col', ascending=False)` |
+| Aggregate (mean) | `SELECT AVG(col) FROM 'file.parquet'` | `df['col'].mean()` |
+| Multiple aggregates | `SELECT MIN(col), MAX(col), AVG(col) FROM 'file.parquet'` | `df['col'].agg(['min', 'max', 'mean'])` |
+| Unique count | `SELECT COUNT(DISTINCT col) FROM 'file.parquet'` | `df['col'].nunique()` |
+| Null count | `SELECT COUNT(*) - COUNT(col) FROM 'file.parquet'` | `df['col'].isna().sum()` |
+
+### Memory model difference (the most important distinction)
+
+```python
+# Pandas — loads the entire file into RAM, then queries the in-memory DataFrame
+df = pd.read_parquet("yellow_tripdata_2024-01.parquet")
+df.shape
+# Memory cost: ~3GB resident in RAM for one month
+
+# DuckDB — never loads the full file; streams chunks through the query
+duckdb.sql("SELECT COUNT(*) FROM 'yellow_tripdata_2024-01.parquet'")
+# Memory cost: ~50MB peak
+```
+
+The implication for data engineering work: **DuckDB lets you profile files larger than your RAM**. You can ask questions of a 100GB Parquet file on a laptop with 16GB of memory, as long as your individual query results fit.
 
 ---
 
