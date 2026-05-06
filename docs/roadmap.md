@@ -20,9 +20,9 @@
 
 - **Total items tracked:** 90+
 - **★ Interview-ready:** 6 *(Git workflows, Medallion architecture, Snowflake RBAC patterns, IAM principles, Docker, Docker Compose)*
-- **☑ Theory learned:** 3
-- **◐ In progress:** 7
-- **Current phase:** Project 1, Phase 1 (Data Source & Exploration) — **Phase 0 fully cleared (re-drill avg 8.0)**
+- **☑ Theory learned:** 6 *(added: star vs snowflake schema, SCDs, surrogate keys via Phase 1 modeling)*
+- **◐ In progress:** 4
+- **Current phase:** Project 1, Phase 1 (Data Source & Exploration) — schema designed; Phase 1 docs pending
 
 ---
 
@@ -59,13 +59,13 @@
 ## Pillar 3 — Data Modeling & Warehousing Theory
 
 - ◐ Dimensional modeling: facts, dimensions, grain *(theory partially absorbed; applies in Phase 1)*
-- ◐ Star schema vs. snowflake schema *(designing in Phase 1)*
-- ☐ Slowly Changing Dimensions (Type 1, 2, 3, 6)
+- ☑ Star schema vs. snowflake schema *(both designs explained; chose star for fct_trips with reasoning in Phase 1)*
+- ☑ Slowly Changing Dimensions (Type 0, 1, 2, 3) *(can articulate when each applies; per-dimension classification done in Phase 1)*
 - ☐ Data Vault 2.0 basics (hubs, links, satellites)
 - ☐ One Big Table (OBT) and when it beats star schemas
 - ★ Medallion architecture (bronze/silver/gold) — *applied as schemas in Phase 0; promoted via Phase 0 Q3 — 8.5/10*
 - ☐ Data contracts and schema evolution
-- ☐ Surrogate keys vs. natural keys
+- ☑ Surrogate keys vs. natural keys *(8.0 grade on Phase 1 light interview question; understands why Type 2 requires surrogates)*
 
 ---
 

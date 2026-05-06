@@ -10,10 +10,8 @@ print(result)
 
 
 result = duckdb.sql("""
-    SELECT
-        MIN(PULocationID) AS min_id,
-        MAX(PULocationID) AS max_id,
-        COUNT(DISTINCT PULocationID) AS distinct_count
+    SELECT store_and_fwd_flag, COUNT(*) AS trip_count
     FROM 'data/raw/yellow_tripdata_2024-01.parquet'
+    GROUP BY store_and_fwd_flag
 """)
 print(result)
