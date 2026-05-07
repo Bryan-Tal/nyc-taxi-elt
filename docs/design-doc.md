@@ -210,11 +210,52 @@ Storing two physical copies would be wasteful — the dimension's data is identi
 
 ---
 
-## 7. Open Questions
+## 7. Schema Evolution Findings (Step 3 — Verified)
 
-These are deliberately unresolved at the close of Phase 1 schema design and will be addressed in subsequent steps:
+A side-by-side comparison of `yellow_tripdata` schemas across 2015, 2019, and 2024 was performed using DuckDB. Key findings:
 
-- **Schema evolution across years** — pending Step 3 investigation. Specifically: was `Airport_fee` always present, or added in 2024? Did `congestion_surcharge` exist before NYC's congestion-pricing legislation? Answers affect whether ingestion needs schema-tolerance logic.
+### Schema-Level Stability ✓
+
+All three years have **the same 19 columns**. No columns were added, removed, or renamed across the decade. This is a meaningful simplification for the ingestion pipeline — the TLC retroactively republished historical data with the modern schema, back-filling NULLs where columns didn't have data.
+
+**One minor exception:** `airport_fee` is lowercase in 2015–2019 and `Airport_fee` (capital A) in 2024. Snowflake's case-insensitive identifiers neutralize this in the warehouse layer, but Python ingestion code must be defensive about column casing.
+
+### Type Drift (Verified)
+
+| Column | 2015 | 2019 | 2024 | Canonical (STAGING target) |
+|---|---|---|---|---|
+| `VendorID` | BIGINT | BIGINT | INTEGER | INTEGER |
+| `passenger_count` | BIGINT | DOUBLE | BIGINT | BIGINT |
+| `RatecodeID` | BIGINT | DOUBLE | BIGINT | BIGINT |
+| `congestion_surcharge` | INTEGER | DOUBLE | DOUBLE | DOUBLE |
+| `airport_fee` / `Airport_fee` | INTEGER | INTEGER | DOUBLE | DOUBLE |
+| `PULocationID` / `DOLocationID` | BIGINT | BIGINT | INTEGER | INTEGER |
+
+All cast directions verified safe:
+- Widening casts (INTEGER → DOUBLE) are automatic
+- Narrowing casts (BIGINT → INTEGER) verified safe via value range checks
+- DOUBLE → BIGINT casts (e.g., `passenger_count` 2019) verified safe — query confirmed zero rows have fractional values
+
+### Semantic Stability — DIVERGES from schema stability
+
+- **`congestion_surcharge`:** column existed in 2015 but **all 12.7M January 2015 values are NULL**. Populated only after NYC congestion pricing launched (2019).
+- **`airport_fee`:** column existed in 2015 but **all values NULL**. Populated only after airport fee policy (2022).
+
+This means historical analyses must filter by date *before* aggregating these columns — interpreting NULL as "didn't exist yet" rather than computing averages that include the absent values.
+
+### Architectural Response (Phase 2 implications)
+
+The investigation confirmed the **Type-Tolerant Casting** architecture (option B from initial analysis):
+
+1. **Land raw bytes in `RAW`** with whatever types the source has — no Python-side normalization
+2. **Cast in `STAGING`** using `TRY_CAST` to canonical target types
+3. **Define canonical target schema once**, applied uniformly to all years
+4. **Document semantic stability separately from schema stability** — type-correctness ≠ data-presence
+
+Type-tolerant casting (option B) is sufficient; full schema-evolution machinery (option C — handling column adds/drops) is unnecessary for this dataset.
+
+### Open / Future Concerns (no longer "Step 3 pending")
+
 - **Trip duration** — derived from `tpep_dropoff_datetime - tpep_pickup_datetime`. Where to compute: in the fact table at load time (idempotent, denormalized) or in a derived view (DRY but adds query overhead). Decision in Phase 3.
 - **Late-arriving facts** — TLC publishes monthly with corrections occasionally backfilled. Pipeline needs idempotent loads with merge semantics. Detailed in Phase 3.
 - **Multi-taxi-type expansion** — Green / FHV / FHVHV have different schemas. Future state may union into one fact table or maintain parallel facts. Not a Phase 1 concern.

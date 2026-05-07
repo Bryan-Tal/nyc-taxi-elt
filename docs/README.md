@@ -1,90 +1,85 @@
-# Documentation Index
+# `/docs/` — Documentation & Learning Artifacts
 
-This folder contains structured documentation, learning artifacts, and study notes for the `nyc-taxi-elt` project. Most files are continuously updated as the project progresses.
-
----
-
-## Roadmap & Status
-
-### [`roadmap.md`](roadmap.md)
-The 10-pillar data engineering roadmap with granular checkbox progress. Pillars cover Programming, SQL/Databases, Data Modeling, Warehousing Platforms, Pipelines/Orchestration, Streaming, Cloud, Infrastructure/DevOps, Data Quality, and Systems Design.
-
-**Use when:** you want to see what's been learned so far, what's in progress, and what's coming next.
+This folder contains project documentation, design artifacts, and structured learning materials. Each file serves a distinct purpose; together they form a self-contained learning + portfolio system.
 
 ---
 
-## Synthesis Drill System
+## File Index
 
-End-of-phase interview-style drills that test cross-component understanding before advancing. Three files work together:
+### Project Design
 
-### [`synthesis-questions.md`](synthesis-questions.md)
-Drill questions per phase, with hints and resources. **No answers** — used for self-testing without spoilers.
+| File | Purpose | When to consult |
+|---|---|---|
+| [`design-doc.md`](design-doc.md) | Why the schema looks this way — modeling decisions, trade-offs, decision log | Reviewing why we chose star vs snowflake, why each dimension has its SCD type, what we considered and rejected |
+| [`data-dictionary.md`](data-dictionary.md) | Per-table column reference (fct_trips + 5 dimensions) | Querying the warehouse, looking up column types/meanings, checking known values |
 
-**Use when:** preparing for a phase synthesis drill, or self-quizzing on prior phases for spaced retrieval.
+### Roadmap & Progress
 
-### [`synthesis-answers.md`](synthesis-answers.md)
-For completed questions only: original answer, grading breakdown, model 9/10 reference answer, and key lessons.
+| File | Purpose | When to consult |
+|---|---|---|
+| [`roadmap.md`](roadmap.md) | 10-pillar DE skill roadmap with checkbox state (☐/◐/☑/★) and Gaps Log | Tracking interview-readiness; identifying what to study next |
 
-**Use when:** reviewing graded drills or referring back to model answers for future interview prep.
+### Learning System (Per-Phase Drills)
 
-### [`synthesis-log.md`](synthesis-log.md)
-Personal log of hardest questions and recurring weak patterns. Tracks question *types* that repeatedly cause trouble, distinct from concept-level gaps.
+| File | Purpose | When to consult |
+|---|---|---|
+| [`synthesis-questions.md`](synthesis-questions.md) | Interview-style synthesis drills, one set per phase | Preparing for interviews; running end-of-phase drills |
+| [`synthesis-answers.md`](synthesis-answers.md) | Verbatim answers + grading + model answers + key lessons | Reviewing past performance; comparing your answer to a 9/10 model |
+| [`synthesis-log.md`](synthesis-log.md) | Recurring weak patterns and strong patterns identified across drills | Identifying *meta-skills* needing attention; reinforcing positive habits |
 
-**Use when:** noticing the same kind of mistake across multiple drills — the log reveals patterns over time.
+### Reference Materials
 
----
-
-## Reference Material
-
-### [`terminal-cheatsheet.md`](terminal-cheatsheet.md)
-Useful terminal commands organized by tool: shell/PATH, Git, Docker, AWS CLI, Homebrew, Python, file system, networking. Each command has a comment and a "when to use" note. Destructive commands flagged with ⚠️.
-
-**Use when:** you remember "I did this once but can't remember the exact command."
-
-### [`de_flashcards.csv`](de_flashcards.csv) and [`de_flashcards_review.md`](de_flashcards_review.md)
-50+ flashcards covering the technical vocabulary encountered across the project. CSV is Anki-importable; Markdown version is human-readable, organized by pillar, with a self-test drill at the bottom.
-
-**Use when:** doing daily 5–10 minute spaced-repetition review.
+| File | Purpose | When to consult |
+|---|---|---|
+| [`mental-models.md`](mental-models.md) | Reusable thinking tools (e.g., Configuration Cascade, Grain First, Defense in Depth) | Stuck on a problem; want to apply a known reasoning pattern |
+| [`tooling-reference.md`](tooling-reference.md) | Terminal commands, SQL idioms, DuckDB↔Pandas mappings, dual-platform notes (🍎/🐧) | Looking up a command; switching between Pandas and SQL idioms |
+| [`de_flashcards.csv`](de_flashcards.csv) | Spaced-repetition deck (Anki-importable) | Daily review; vocabulary reinforcement |
 
 ---
 
-## How These Files Relate
+## How These Files Fit Together
 
-```
-                     roadmap.md
-                          │
-             ┌────────────┴────────────┐
-             │                         │
-   synthesis-questions.md       de_flashcards.csv
-             │                         │
-             ▼                         │
-     (you attempt drill)               │
-             │                         │
-             ▼                         │
-   synthesis-answers.md ◀──── feed ────┘
-             │                vocabulary
-             ▼
-   synthesis-log.md
-   (personal patterns)
+Three layers of artifact serve three different needs:
 
+**1. Vocabulary** — `de_flashcards.csv`. Atomic terms and short definitions. Use for spaced-repetition recall of facts.
 
-   terminal-cheatsheet.md  ── used continuously across all phases
-```
+**2. Patterns** — `mental-models.md`, `tooling-reference.md`. Reusable structures for thinking and doing. Use when you need a template you've seen before.
 
-**Workflow during a phase:**
-1. New concepts encountered → flashcards added to deck
-2. New commands encountered → cheatsheet updated
-3. End of phase → synthesis drill questions generated
-4. Bryan attempts drill → answers + grading recorded
-5. Hardest questions noted in synthesis-log
-6. Next phase begins
+**3. Application** — `design-doc.md`, `data-dictionary.md`, `synthesis-*.md`, `roadmap.md`. The actual project work plus reflective study log. Use to demonstrate or audit your understanding.
+
+The vocabulary feeds the patterns; the patterns scaffold the application; the application surfaces what's missing in the vocabulary. The flow is bidirectional and self-reinforcing.
 
 ---
 
-## Maintenance
+## Conventions
 
-- **Continuously updated:** flashcards, terminal cheatsheet (as new commands appear)
-- **Updated end of each phase:** roadmap, synthesis-questions, synthesis-answers, synthesis-log
-- **Created once, refined over time:** this README, project root README
+- **Per-phase synthesis drills** — every phase ends with ~10 questions covering its key concepts. Score ≥8.0/10 average to advance.
+- **Re-drill protocol** — phases below 8.0 trigger fresh-scenario re-drills targeting weakest questions.
+- **Quarterly rerun** — every ~6 weeks, re-ask 1-2 prior questions to test retention, especially Gaps Log items.
+- **Verbatim answer preservation** — `synthesis-answers.md` always preserves Bryan's actual answers without summarization, so future re-reads compare exact phrasing to the model answer.
+- **Roadmap promotion rule** — items only promote to ☑ or ★ when every distinct concept in the item's name has been explicitly taught. For "X vs Y" items, both X and Y must be covered.
 
-If you fork this repo and want to adapt the system to your own learning, the workflow rules are documented in the conversation history with Claude. The artifacts themselves are sufficient to start using.
+---
+
+## How to Add a New File
+
+When the project grows, new artifacts may be needed (e.g., a Phase 6 lessons-learned doc). Convention:
+
+1. Create the file in `/docs/`
+2. Add an entry to this README's File Index with purpose and when-to-consult
+3. Cross-reference from any other artifact that benefits (e.g., link from root README)
+4. Commit with a `docs:` prefix per Conventional Commits style
+
+---
+
+## Phase 1 Closeout Snapshot (current state)
+
+Phase 0 and Phase 1 are complete. The artifacts most representative of current progress:
+
+- **Architecture & decisions:** [`design-doc.md`](design-doc.md) (~280 lines)
+- **Schema reference:** [`data-dictionary.md`](data-dictionary.md) (~280 lines)
+- **Skill progress:** [`roadmap.md`](roadmap.md) — 6 ★ interview-ready, 6 ☑ theory learned
+- **Drill performance:** Phase 0 re-drill avg 8.0/10 (cleared); Phase 1 drill pending after schema evolution investigation
+- **Learning artifacts:** 10 mental models, ~58 flashcards, comprehensive tooling reference
+
+Phase 2 (ingestion) is the next active workstream.

@@ -62,7 +62,7 @@
 - **Tip recording bias:** Cash tips are not captured in `tip_amount`. Analyses comparing tip rates by `payment_type` will systematically understate cash tips. Best practice: filter to credit-card payments before computing average tip rates.
 - **Date key vs timestamp:** Both are present. Use `pickup_date_key` for joins to `dim_date`; use `tpep_pickup_datetime` for hour/minute precision.
 - **Negative measures:** Some `fare_amount` and `total_amount` values are negative — these are dispute/refund records. Filter or aggregate carefully.
-- **Schema evolution risk:** `congestion_surcharge` (added when congestion pricing launched) and `airport_fee` (added 2024) are NULL for older data. Pipeline must tolerate missing columns in source files. *Detailed findings pending Step 3.*
+- **Schema evolution across years (verified Step 3):** Schema is column-stable from 2015–2024 (same 19 columns), but type drift exists. `congestion_surcharge` (added 2019 policy) and `Airport_fee` (added 2022 policy) are **NULL for all pre-policy data** — analyses must filter by date before aggregating. Pipeline handles type drift via `TRY_CAST` in STAGING; no schema-evolution framework needed. See `design-doc.md` §7 for full type-drift table.
 
 ---
 

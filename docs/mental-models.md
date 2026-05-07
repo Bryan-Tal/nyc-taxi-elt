@@ -22,6 +22,7 @@
 4. [Predict Before You Query](#4-predict-before-you-query)
 5. [Grain First, Schema Second](#5-grain-first-schema-second)
 6. [The Richness Test (When to Build a Dimension)](#6-the-richness-test-when-to-build-a-dimension)
+7. [Schema vs Semantics Stability](#7-schema-vs-semantics-stability)
 
 ### Reasoning About Cost & Scale
 7. [Cost Trade-offs Flip at Scale](#7-cost-trade-offs-flip-at-scale)
@@ -435,7 +436,48 @@ If no — pick a more structured pattern *now*, before instances proliferate.
 
 ---
 
-## How to Add to This File
+## 7. Schema vs Semantics Stability
+
+**The model:** A column's *existence* (schema) and a column's *meaning* (semantics) can drift independently across time. A column may always have existed without always having data; data presence may shift due to policy changes, system rollouts, or backfill operations during republishing. Always verify value distributions before assuming a column's meaning is stable across the historical range.
+
+### Why it works
+
+When inspecting a long-running dataset, schema-level checks (column count, names, types) only validate the *structure* of the data. The *interpretation* of each column may have shifted in ways the schema doesn't reveal. Conflating these creates analyses that silently misinterpret historical periods.
+
+### When to apply
+
+- Profiling any dataset with multi-year history
+- Validating ingestion pipelines that consume historical data
+- Reviewing analytical queries that aggregate across long time windows
+- Investigating "wait, why is this metric weirdly low for 2015?"
+
+### Worked example — Phase 1, Step 3
+
+Investigation of `yellow_tripdata` Parquet files across 2015, 2019, 2024:
+
+**Schema-level finding:** all three years have identical 19-column schema. No columns added or removed. *Looks like* simple type drift only.
+
+**Semantics-level finding (revealed by querying actual values):** `congestion_surcharge` and `airport_fee` are NULL for *every single row* in January 2015 — 12.7M rows, all NULL. The columns existed in the schema but were not populated until the corresponding policies launched (congestion pricing 2019, airport fees 2022).
+
+The schema-level check would have led to a confident "no schema evolution issues" conclusion. The semantics-level check revealed that aggregations on these columns must filter by date or risk silently misinterpreting NULL as "no surcharge applied" when it actually means "the policy didn't exist yet."
+
+### The diagnostic ritual
+
+For any historical dataset, run two passes:
+
+1. **Structural pass:** `DESCRIBE` across years; compare column names, types, count
+2. **Semantic pass:** for each column that's expected to be populated, sample distributions (`SELECT col, COUNT(*) GROUP BY col`) across each year. Look for periods where the column is suspiciously NULL, all-zero, or all-default.
+
+The semantic pass catches everything the structural pass misses.
+
+### Generalizes to
+
+- API field deprecation (a field exists in the response schema but is never populated)
+- Soft-deleted records (rows exist but flagged inactive)
+- Feature flags (column exists but only populated for users in the rollout)
+- Versioned events (event type names evolve while schema remains stable)
+
+---
 
 When a new mental model surfaces in conversation:
 

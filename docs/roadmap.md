@@ -20,9 +20,10 @@
 
 - **Total items tracked:** 90+
 - **★ Interview-ready:** 6 *(Git workflows, Medallion architecture, Snowflake RBAC patterns, IAM principles, Docker, Docker Compose)*
-- **☑ Theory learned:** 6 *(added: star vs snowflake schema, SCDs, surrogate keys via Phase 1 modeling)*
+- **☑ Theory learned:** 7 *(includes Phase 1: star vs snowflake schema, SCDs, surrogate keys, schema evolution patterns)*
 - **◐ In progress:** 4
-- **Current phase:** Project 1, Phase 1 (Data Source & Exploration) — schema designed; Phase 1 docs pending
+- **Current phase:** Project 1, Phase 1 ✅ complete (schema design, profiling, evolution investigation); Phase 2 ingestion next
+- **Drill record:** Phase 0 re-drill avg 8.0/10 ✓; Phase 1 drill pending
 
 ---
 
