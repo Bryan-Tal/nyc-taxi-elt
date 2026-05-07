@@ -122,13 +122,15 @@ See [`docs/roadmap.md`](docs/roadmap.md) for granular checkbox-level progress.
 
 ### Prerequisites
 
-- macOS, Linux, or Windows with WSL2 (project lives on Linux filesystem — see Phase 1 lessons)
+- macOS, Linux, or Windows with WSL2 (the project should live on the Linux filesystem under `~/Projects/`, not on a OneDrive/Dropbox-synced Windows path — sync tools conflict with rapid file operations)
 - Python 3.11+
 - Docker Desktop
 - AWS account (free tier sufficient)
 - Snowflake account ([30-day trial](https://signup.snowflake.com/) sufficient)
 
 ### Setup
+
+> **Note on setup state:** Phase 0 infrastructure (Snowflake account, AWS S3 bucket, IAM role, storage integration) was set up interactively through the AWS and Snowflake web consoles. Idempotent setup scripts in `infrastructure/snowflake/` and `infrastructure/aws/` are planned for **Phase 6 (Documentation & Polish)** so the project becomes fully self-bootstrappable. Until then, the steps below describe what *needs* to happen, not a script to execute.
 
 1. **Clone the repo**
    ```bash
@@ -142,9 +144,19 @@ See [`docs/roadmap.md`](docs/roadmap.md) for granular checkbox-level progress.
    # Edit .env with your Snowflake account and AWS credentials
    ```
 
-3. **Initialize Snowflake** — see [`infrastructure/snowflake/`](infrastructure/snowflake/) for setup SQL.
+3. **Initialize Snowflake (manual, for now)**
+   - Create a Snowflake account (free trial)
+   - Create database `NYC_TAXI` with schemas `RAW`, `STAGING`, `MARTS`, `SNAPSHOTS`
+   - Create warehouse `WH_ELT` (XSMALL, AUTO_SUSPEND = 60)
+   - Create role `ELT_ROLE` and user `ELT_USER` with appropriate grants
+   - DDL scripts to automate this are planned for Phase 6
 
-4. **Configure AWS** — see [`infrastructure/aws/`](infrastructure/aws/) for IAM role and S3 bucket setup.
+4. **Configure AWS (manual, for now)**
+   - Create an S3 bucket for taxi Parquet landing
+   - Create IAM user `nyc-taxi-elt-user` with scoped inline policy
+   - Create IAM role `snowflake-s3-role` with trust policy referencing Snowflake's IAM user + ExternalId
+   - Configure storage integration `S3_NYC_TAXI_INT` in Snowflake referencing the role
+   - Terraform/Python scripts to automate this are planned for Phase 6
 
 5. **Boot the local Airflow stack**
    ```bash
