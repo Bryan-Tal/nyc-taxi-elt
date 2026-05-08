@@ -1,12 +1,18 @@
 # Data Engineering Synthesis — Practice Log
 
-> **Purpose:** Personal log of hardest synthesis questions and recurring weak patterns. Different from the Gaps Log (which tracks weak *concepts*); this tracks weak *question types* and *thinking patterns*.
+> **Purpose:** Personal log of hardest questions and recurring weak patterns. Different from the Gaps Log (which tracks weak *concepts*); this tracks weak *question types* and *thinking patterns*.
 >
-> **Maintained by Bryan.** Claude prompts updates after each phase synthesis drill grading.
+> **Sources tracked (dual-stream as of 2026-05-07):** Patterns surface from both **synthesis drills** (end-of-phase) AND **random interview questions** (dice-triggered, recorded in `interview-questions.md` / `interview-answers.md`). One log, two sources — patterns that recur across both streams are the strongest signal.
+>
+> **Maintained by Bryan.** Claude prompts updates after each phase synthesis drill grading and after sub-8.0 random questions complete consolidation.
+>
+> **Standards (raised 2026-05-07):** Drill advancement requires **≥8.5 average AND zero individual questions <8.0**. Random interview questions held to the same individual threshold (≥8.0). Any sub-8.0 question triggers a consolidation session before re-testing, with continuation until ≥95% confidence in topical fluency. The "I don't know" protocol applies during consolidation: hint-driven guidance with a 3-strike rule before full disclosure + deeper consolidation. Senior-DE / intern framing means depth and substantive defense of every claim are mandatory, not optional.
 >
 > **Companion files:**
-> - [`synthesis-questions.md`](./synthesis-questions.md) — drill questions
-> - [`synthesis-answers.md`](./synthesis-answers.md) — model answers
+> - [`synthesis-questions.md`](./synthesis-questions.md) — synthesis drill questions
+> - [`synthesis-answers.md`](./synthesis-answers.md) — synthesis model answers
+> - [`interview-questions.md`](./interview-questions.md) — random interview question record
+> - [`interview-answers.md`](./interview-answers.md) — random interview model answers
 
 ---
 
@@ -68,7 +74,9 @@
 
 ### Re-drill Verdict
 
-**Average: 8.0/10 ✓** — meets threshold exactly. **Phase 0 cleared.**
+**Average: 8.0/10 ✓** — met original 8.0 threshold (cleared at the time).
+
+> **Note (2026-05-07):** The drill threshold was subsequently raised to 8.5+ average AND zero individual questions <8.0. Under the new standard, the Phase 0 re-drill (Q-Re-1 = 7.5) would not have cleared without further consolidation. The pillars promoted to ★ during Phase 0 (Git workflows, Medallion architecture, Snowflake RBAC, IAM principles, Docker, Docker Compose) remain accurate as theory-learned ★ items because the underlying concepts were demonstrated. The senior-DE / intern framing established 2026-05-07 means future drills will not advance under similar circumstances; consolidation continues until ≥95% confidence is reached.
 
 Improvement across the three weakest topics: +6.0 points combined (5.5→7.5, 6.5→8.5, 7.0→8.0). Notably, all three improvements came from the *same underlying meta-skill*: separating layers/scopes/directions and naming each precisely. This is not coincidence — it's evidence the recurring weakness pattern from the original drill ("vocabulary precision on layered systems") has a single root cause that the re-drill systematically addressed.
 
@@ -138,6 +146,19 @@ Improvement across the three weakest topics: +6.0 points combined (5.5→7.5, 6.
 ## Phase 6 — Hardest Questions
 
 *To be added at end of Phase 6.*
+
+---
+
+## Random Interview Questions — Sub-8.0 Tracker
+
+*Persistent record of random interview questions (from `interview-answers.md`) that scored below the individual 8.0 threshold and require consolidation before re-drill. Updated as questions are graded and as consolidation status changes.*
+
+| ID | Topic | Score | Consolidation status | Re-drill target |
+|---|---|---|---|---|
+| RQ-002 | SCD2 + is_current trap; SQL rewrite; Snowflake perf tuning | 6.0/10 | 🚧 OPEN — 3 sub-areas need teaching: (1) is_current trap mechanics, (2) range-filter SQL precision, (3) Snowflake performance tuning fundamentals | End of Phase 2 OR quarterly rerun, whichever first |
+| *(more entries added as random questions surface gaps)* | | | | |
+
+**Above-threshold random questions** (≥8.0, no consolidation needed) are not listed here — they're recorded in `interview-answers.md` only.
 
 ---
 
