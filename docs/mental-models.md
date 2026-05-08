@@ -466,9 +466,29 @@ The schema-level check would have led to a confident "no schema evolution issues
 For any historical dataset, run two passes:
 
 1. **Structural pass:** `DESCRIBE` across years; compare column names, types, count
-2. **Semantic pass:** for each column that's expected to be populated, sample distributions (`SELECT col, COUNT(*) GROUP BY col`) across each year. Look for periods where the column is suspiciously NULL, all-zero, or all-default.
+2. **Semantic pass:** for each column that's expected to be populated, sample distributions (`SELECT col, COUNT(*) GROUP BY col`) across each year. Look for periods where the column is suspiciously NULL, all-zero, or all-default. Look for new categorical values appearing partway through history. Look for numerical scale shifts (a `cost` column averaging 50 in 2018 and 5000 in 2020 is a sign of a unit change). Look for definition shifts in metric documentation.
 
 The semantic pass catches everything the structural pass misses.
+
+### The taxonomy of semantic drift (with characteristic fixes)
+
+Five drift categories worth distinguishing, because each has a different *fix* even though they share a *symptom*:
+
+| Drift category | What changes | Example | Characteristic fix |
+|---|---|---|---|
+| **NULL-population drift** | Column existed but had no values until a policy/feature/system launched | `congestion_surcharge` NULL for all 2015 NYC TLC rows | Filter by date when aggregating; document policy launch dates in data dictionary |
+| **Unit / encoding drift** | Same column, different measurement system (USD↔EUR, cents↔dollars, UTC↔local) | `revenue` storing dollars in 2018, cents in 2024 | Normalize the unit using historical conversion data |
+| **Definition drift** | The real-world concept the column references changed | "ad impression" redefined to require viewability after 2017 | Segment the analysis — cannot combine pre-change and post-change; compare within each definition era |
+| **Taxonomy expansion** | New categorical values added without retiring old ones | `payment_method` adding `apple_pay` in 2019, `crypto` in 2024 | Decide whether to roll up new categories into legacy ones for cross-period comparison, or report new vs legacy distinctly |
+| **Soft-state drift** | Same row exists but its meaning shifts via flags | `is_active = false` records persist but represent something different than active records | Decide whether soft-state records should be filtered before analysis, included as a distinct cohort, or aggregated separately |
+
+The senior signal is naming both the *category* of drift AND the *characteristic fix* — they pair together because the fix shape derives from the change shape.
+
+### The danger isn't crashes; it's silent wrongness
+
+The reason these models matter for senior data engineers: schema-mismatch bugs are *easy* — they produce errors, missing columns, type cast failures. Loud failures get fixed. Semantic drift bugs are *dangerous* because they produce **plausible-looking results that are quietly wrong.** An analyst computing "average revenue per customer" across 8 years gets a number that looks reasonable, fits in a deck, supports a decision — and is wrong because revenue was redefined in year 4 or stored in cents starting in year 6. Bad decisions get made on bad numbers, and nobody knows the data was the cause.
+
+This is why the structural pass alone is insufficient. The temptation is to use the fast check (DESCRIBE) as a proxy for the slow check (per-period value sampling). That temptation is the failure mode.
 
 ### Generalizes to
 

@@ -4,14 +4,14 @@
 
 > **Companion:** [`de_flashcards.csv`](de_flashcards.csv) — Anki-importable source
 
-**Total cards:** 80
+**Total cards:** 82
 
 ---
 
 ## Table of Contents
 
 - [Phase 0](#phase-0) — 55 cards
-- [Phase 1](#phase-1) — 25 cards
+- [Phase 1](#phase-1) — 27 cards
 
 ---
 
@@ -379,7 +379,7 @@ A Homebrew support tier indicating that pre-compiled binaries (bottles) are not 
 
 ## Phase 1
 
-*25 cards added during Phase 1.*
+*27 cards added during Phase 1.*
 
 ### 1 - Programming
 
@@ -438,6 +438,12 @@ A warehouse table that provides context for fact rows — the WHO, WHAT, WHERE, 
 *Tooling*
 
 In-process columnar SQL engine — conceptually 'SQLite for analytics.' Queries Parquet/CSV/JSON files directly without loading them into memory. Streams data through the query engine in chunks, so it can profile files larger than RAM. SQL syntax is highly compatible with Snowflake/BigQuery/Postgres, making it a natural learning bridge to production warehouses. Free, embedded, no server.
+
+#### Encoding Drift vs Definition Drift
+
+*Data Engineering / Profiling*
+
+Two structurally different categories of semantic drift with different fixes. Encoding drift: the measurement system changed (USD vs EUR; cents vs dollars; UTC vs local time). Same real-world concept, different unit. Fix: normalize unit using historical conversion data. Definition drift: the real-world concept itself changed (revenue includes refunds vs excludes; ad-impression requires viewability vs not). Same number, different meaning. Fix: segment the analysis — pre-change and post-change periods cannot be combined; compare like-for-like within each definition era.
 
 #### Fact Table
 
@@ -503,7 +509,7 @@ Filtering 'WHERE dim.is_current = TRUE' on a fact-to-Type-2-dimension join silen
 
 *Data Engineering / Profiling*
 
-Column existence (schema) and column meaning (semantics) can diverge across time. A column may always have existed without always having data; data presence may shift with policy changes, system rollouts, or republishing. Always verify value distributions across historical periods before assuming a column's meaning is stable. Schema-level DESCRIBE catches structural drift; sampling distributions per period catches semantic drift.
+Schema (column names, types, presence) and semantics (whether the same recorded value represents the same real-world thing across history) can drift independently across time. A column may exist in the schema from day one but be unpopulated until a policy launches; values may stay numerically identical while their unit, definition, or business meaning shifts beneath them. Schema checks (DESCRIBE) are fast; semantic checks (querying value distributions, units, definitions per period) are slower but essential. Five drift categories: NULL-population, unit/encoding, definition, taxonomy expansion, soft-state.
 
 #### Snowflake Schema
 
@@ -516,6 +522,12 @@ A dimensional design where dimensions are normalized into multiple sub-dimension
 *Data Modeling*
 
 A dimensional design where the fact table sits at the center with dimension tables radiating outward, each one join away. Named for its star-like shape when diagrammed. Modern columnar warehouses prefer star over normalized alternatives because compression handles repeated dimension values efficiently, while query simplicity from one-hop joins is meaningful.
+
+#### Structural Pass vs Semantic Pass
+
+*Data Engineering / Profiling*
+
+The two-stage data validation discipline. Structural pass: fast checks against schema (column count, names, types). Semantic pass: slow checks against actual data (value distributions per period, unit consistency, definition stability). The classic failure mode is using the fast structural pass as a proxy for the slow semantic pass — schema looks identical, analyst skips semantic verification, analysis returns plausible-looking but quietly wrong numbers. The danger isn't crashes; it's silent wrongness. Always run both passes for any historical dataset before trusting cross-period analysis.
 
 #### Surrogate Key vs Natural Key
 
