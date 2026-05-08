@@ -636,7 +636,480 @@ The runtime cast for *one execution* of an automated 3 AM Airflow-triggered inge
 
 ## Phase 1 — Data Source & Exploration
 
-*Answers will be added as Bryan completes Phase 1's drill.*
+*Drill date: 2026-05-07 — Final average: 6.85/10 (below 8.0 threshold; re-drill required for Q9, Q10, Q6).*
+
+### Q1 — Grain & Its Consequences
+
+**The question:**
+> Your fact table `fct_shipments` has columns: `shipment_id`, `customer_id`, `origin_warehouse_id`, `destination_address_id`, `carrier_id`, `weight_lbs`, `total_cost`, `shipped_at`, `delivered_at`. State the grain in one sentence. Then describe **two analytical questions this grain supports** and **two analytical questions it does NOT support** (and what grain you would need for those). Be specific about why.
+
+#### Bryan's answer — 7.0/10
+
+> Q1: One row of this table represents shipping information, specifically packages that are originally stored at warehouses then shipped delivered to customers via some carrier.
+> Two questions this grain supports:
+> * What is the average weight of packages shipped from origin_warehouse_id = 10201?
+> * What is the most expensive package delivered by carrier xyz?
+> Two Questions this grain does not support:
+> * What is the fastest time a package has been delivered from order to delivery? (requires an ordered_at column with timestamps containing the order times)
+> * How many stops does a package make before being delivered? (requires dataset to keep track of each stop on a package's route to the customer)
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 7/10 | Grain idea correct in spirit but stated imprecisely; supported/unsupported splits reasonable |
+| Conceptual Depth | 7/10 | Identified the right shape; missed precise grain articulation |
+| Vocabulary Precision | 6/10 | "Shipping information" is descriptive, not precise. Grain statements need to name *exactly what one row represents* |
+| Trade-off Awareness | 8/10 | Both unsupported-question explanations correctly identify what attribute or grain shift would be needed |
+
+#### Model answer (9/10)
+
+The grain of `fct_shipments` is: **one row per shipment**.
+
+A shipment is one event of one package being sent on one journey to one destination via one carrier. The single-noun precision ("one row per X") is what distinguishes a grain statement from a domain description.
+
+Supported questions (existing grain works, just aggregate):
+- Average weight from origin_warehouse_id = 10201 — single WHERE + AVG
+- Most expensive package delivered by carrier xyz — single WHERE + ORDER BY total_cost DESC LIMIT 1
+
+Unsupported questions, with the distinction worth naming:
+- "Fastest time from order to delivery" — *attribute availability* problem. Same grain (per shipment), but needs an additional `ordered_at` column. The fact table just needs an additional attribute.
+- "How many stops before delivery?" — *grain* problem. Requires a finer grain: `fct_shipment_stops` at "one row per (shipment, stop)" grain. This is structurally a different fact table.
+
+The senior insight: distinguish *attribute availability* problems (same grain, missing column) from *grain* problems (need a different fact table). Different engineering responses.
+
+#### Key lessons
+
+1. **Grain statements are single-noun precise.** "One row per shipment" not "shipping information."
+2. **Two categories of unanswerable.** Attribute-availability problems vs grain problems require fundamentally different fixes.
+3. **Senior signal:** explicitly naming which category each unanswerable question falls into demonstrates depth most engineers don't articulate.
+
+---
+
+### Q2 — Dimension Classification
+
+**The question:**
+> A teammate is designing a fact table for an e-commerce orders dataset and shows you these source columns: `order_id`, `customer_id`, `product_id`, `coupon_code` (string, ~50 distinct values like "SUMMER10"), `discount_amount` (decimal), `is_gift` (boolean), `order_status` (string: "pending"/"shipped"/"delivered"/"cancelled"), `device_type` (string: "mobile"/"desktop"/"tablet"). For each non-PK column, classify it as: dimension table / degenerate dimension / pure measure. Justify each classification using the Richness Test.
+
+#### Bryan's answer — 8.0/10 ✓
+
+> Q2:
+> * customer_id: dimension
+>    * cardinality can become larger than 5 with a moderate user base
+>    * this set will become larger as the e-commerce site grows.
+>    * You would want to attach descriptive attributes, such as full name and other personal information.
+> * product_id: dimension
+>    * cardinality is can definitely be larger than 5
+>    * this set will become larger as the e-commerce site adds new products to their catalog
+>    * You would want to attach attributes such as product name, stock, cost of goods, etc.
+> * coupon_code: degenerate
+>    * cardinality is already larger than 5 with ~50 codes
+>    * this set would not need to grow, company can simply rotate coupon codes out.
+>    * There are no descriptive attributes you would want to add to these codes besides maybe their discount values. But most companies attach those directly to the code name itself.
+> * discount_amount: pure metric
+>    * can't be represented by cardinality as it is a continuous value
+>    * not part of a set
+>    * no descriptive attributes that would be worth adding.
+> * is_gift: degenerate
+>    * cardinality is 2
+>    * set is non-growing as it is represented by a boolean.
+>    * no descriptive attributed are needed.
+> * order_status: degenerate
+>    * cardinality is 4
+>    * set does not increase as it is a static list of order statuses.
+>    * there are no extra descriptive attributes that are worth adding. The status itself is the description.
+> * device_type: degenerate
+>    * cardinality is 3
+>    * set is very likely not to increase
+>    * there are no extra attributes anyone would be interested in.
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 8/10 | 5 of 7 correct outright; 2 mis-classified but with reasonable thinking |
+| Conceptual Depth | 8/10 | Applied all three Richness Test criteria explicitly to each column |
+| Vocabulary Precision | 9/10 | Crisp use of "cardinality," "degenerate," "pure measure" |
+| Trade-off Awareness | 7/10 | Solid reasoning, but missed why coupon_code is borderline interesting |
+
+#### Model answer (9/10)
+
+| Column | Classification | Justification |
+|---|---|---|
+| customer_id | Dimension | High cardinality, growing, rich attributes (name, segment, contact info) |
+| product_id | Dimension | High cardinality, growing, rich attributes (name, price, category) |
+| coupon_code | **Dimension** | ~50 values, churns over time (new campaigns added/expired), and rich attributes worth attaching: discount_pct, min_order_value, valid_from/valid_to, campaign_name. An analyst asking "what was 2024's summer campaign ROI?" wants to JOIN to dim_coupon and filter campaign_name |
+| discount_amount | Pure measure | Continuous numeric, aggregated |
+| is_gift | Degenerate | Cardinality 2, no plausible attributes worth attaching |
+| order_status | Degenerate (defensible) | 4 values; some warehouses build dim_order_status for richness like is_terminal_state, is_revenue_recognized |
+| device_type | Degenerate | 3 stable values, no plausible richness |
+
+The two under-classifications (coupon_code, arguably order_status) reveal the same pattern from Phase 1 conversation around VendorID and RatecodeID: weighting cardinality more than the richness test.
+
+The shortcut question worth memorizing: *"Would a business analyst writing a report ever want to JOIN to this column for richer text or attributes?"* For coupon_code: yes (campaigns, validity windows, discount mechanics). For is_gift: no.
+
+#### Key lessons
+
+1. **Apply all three Richness Tests, not just cardinality.** The richness criterion catches dimensions that low cardinality alone would miss.
+2. **The shortcut question** ("would an analyst want to JOIN for richer text?") is faster than the formal three-test walk for borderline cases.
+
+---
+
+### Q3 — SCD Type Reasoning
+
+**The question:**
+> For an analytical warehouse tracking historical product sales, you have three dimensions:
+> - `dim_product` — products are renamed occasionally (e.g., "iPhone 14 Pro" → "iPhone 14 Pro Max"); we want historical reports to show what the product was called at the time of sale
+> - `dim_category` — broad categories like "Electronics", "Apparel", "Home Goods" — categories rarely change, but a typo correction in 2024 changed "Apparrel" to "Apparel"
+> - `dim_currency` — `currency_code`, `currency_name`, `symbol` — currency codes are stable; descriptions are stable
+>
+> Assign an SCD type (0/1/2/3) to each dimension and explain your reasoning. **Address all three dimensions explicitly.**
+
+#### Bryan's answer — 8.5/10 ✓
+
+> Q3:
+> * dim_product: SCD type 2 as we want to preserve the historical product names at time of sale.
+> * dim_category: SCD 1 as we don't need to preserve historical category names, such as the typo. We would rather overwrite it.
+> * dim_currency: SCD type 0 as currency codes and their descriptions are stable.
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 9/10 | All three classifications correct |
+| Conceptual Depth | 8/10 | Right reasoning, but compressed — could go further on *why* each fits |
+| Vocabulary Precision | 9/10 | "Preserve historical product names at time of sale," "stable" — all tight terms |
+| Trade-off Awareness | 8/10 | Implicit; could be stronger by naming what each choice trades off |
+
+#### Model answer (9/10)
+
+- **dim_product → SCD Type 2.** Historical reports need product names *at time of sale*. Each product version gets its own row with valid_from/valid_to. **Requires surrogate keys** because product_id appears in multiple rows.
+- **dim_category → SCD Type 1.** The typo correction "Apparrel" → "Apparel" is *cosmetic*, not a meaning change. The category itself didn't change; only the label was fixed. Type 2 would be misleading (analysts would see two "Apparel" entries with no semantic distinction).
+- **dim_currency → SCD Type 0.** ISO 4217 currency codes are explicitly designed to be immutable. Adding new currencies via INSERT is fine; modifying existing ones is the prohibited operation. Type 0 captures this cleanly.
+
+The principle: **SCD type addresses changes to existing rows, not additions of new rows.**
+
+#### Key lessons
+
+1. **Connect SCD choice to schema implication.** Type 2 → surrogate keys required. Type 1 → no validity windows. Type 0 → no change-tracking machinery.
+2. **Type vs adds.** "We add new categories sometimes" is not an SCD operation — it's just INSERT.
+
+---
+
+### Q4 — Role-Playing Dimensions
+
+**The question:**
+> Explain (a) what a role-playing dimension is, (b) why our project uses one for `dim_location` and `dim_date`, and (c) write the SQL skeleton (no need for a complete query — just JOINs and aliases) showing how you'd query "for each pickup borough, what's the average trip duration grouped by pickup day-of-week?" using the role-playing dimensions correctly.
+
+#### Bryan's answer — 7.0/10
+
+> Q4:
+> a. A role-playing dimension is a dimension table that is referenced more than once by a fact table.
+> b. Our project uses one for dim_location as it is referenced by PULocationID and DOLocationID in the fact table, while dim_date is referenced by tpep_pickup_datetime and tpep_dropoff_datetime in the fact table.
+> c.
+> SELECT pu, pud, AVG(tpep_pickup_datetime - tpep_dropoff_datetime) as avg_trip_duration
+> FROM fct_trips f
+> JOIN dim_location pu ON f.PULocationID = pu.location_id
+> JOIN dim_location do ON f.DOLocationID = do.location_id
+> JOIN dim_date pud ON f.pickup_date_key = pud.date_key
+> JOIN dim_date dod ON f.dropoff_date_key = dod.date_key
+> GROUP BY pu, pud
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 6/10 | Concept right; SQL has 4 specific bugs that would prevent it from running |
+| Conceptual Depth | 8/10 | (b) correctly identifies both role-playing dimensions in our schema |
+| Vocabulary Precision | 7/10 | "Referenced more than once" missing the "different semantic role" nuance |
+| Trade-off Awareness | 7/10 | Implicit understanding shown via correct schema usage |
+
+#### Model answer (9/10)
+
+(a) A role-playing dimension is a single physical dimension table referenced multiple times by one fact table, where each reference plays a different semantic role (e.g., pickup vs dropoff, order vs ship vs delivery date). Storing one physical table avoids data duplication; SQL aliases disambiguate roles at query time.
+
+(b) `dim_location` is role-playing because `fct_trips` references it twice via `pickup_location_sk` and `dropoff_location_sk` (both surrogate-key foreign keys). `dim_date` is role-playing because `fct_trips` references it twice via `pickup_date_key` and `dropoff_date_key` (both INT YYYYMMDD foreign keys). Note: `tpep_pickup_datetime` and `tpep_dropoff_datetime` are TIMESTAMP columns preserved in the fact for sub-day precision; they don't participate in the dim_date join.
+
+(c) Correct SQL skeleton:
+```sql
+SELECT
+    pu.borough              AS pickup_borough,
+    pud.day_name            AS pickup_day_of_week,
+    AVG(DATEDIFF('minute', f.tpep_pickup_datetime, f.tpep_dropoff_datetime))
+        AS avg_trip_minutes
+FROM fct_trips f
+JOIN dim_location pu  ON f.pickup_location_sk = pu.location_sk
+JOIN dim_date     pud ON f.pickup_date_key    = pud.date_key
+GROUP BY pu.borough, pud.day_name
+```
+
+Four bugs in the original answer:
+1. **SELECT/GROUP BY use table aliases as if they were columns.** `SELECT pu` should be `SELECT pu.borough`.
+2. **Joined on natural key instead of surrogate key.** `f.PULocationID = pu.location_id` would produce one-to-many joins on a Type 2 dimension. Should be `f.pickup_location_sk = pu.location_sk`.
+3. **Trip duration math is backwards and unitless.** `pickup - dropoff` returns a negative interval. Should be `DATEDIFF('minute', pickup, dropoff)` for clarity and correct sign.
+4. **Grouped by table alias instead of attribute.** "Day of week" requires `pud.day_name`, not the entire `pud` table.
+
+#### Key lessons
+
+1. **Concept solid, execution buggy.** The four SQL bugs are practical-skill gaps, not concept gaps.
+2. **Phase 3 (dbt) will be the proving ground** for star-schema query writing.
+3. **The four bug categories** (alias-as-column, natural-vs-surrogate join, interval-arithmetic precision, group-by-attribute vs group-by-table) are recurring senior-level SQL hazards.
+
+---
+
+### Q5 — Star vs Snowflake (Comparison)
+
+**The question:**
+> A senior engineer reviews your `dim_location` design and proposes normalizing it into three tables: `dim_location` (location_id, zone, borough_id, service_zone_id), `dim_borough` (borough_id, borough_name), `dim_service_zone` (service_zone_id, service_zone_name). Defend your choice to keep `dim_location` flat. Address: (a) what shape this proposal would create, (b) historically why this normalized shape existed, (c) why modern columnar warehouses make it less compelling, and (d) the specific cost-benefit for our 260-row dimension.
+
+#### Bryan's answer — 7.5/10
+
+> a. the overall shape would resemble a snowflake, requiring multiple joins in order to access the same breadth of information as our flat dim_location table.
+> b. this shape used to exist historically in order to save storage, however today this is less of an issue with larger amounts of storage becoming more widely available due to various compression methods.
+> c. modern columnar warehouses make this less compelling as columnar compression mitigates the issue of storage. This is also why production warehouses opt to use parquet files.
+> d. Keeping our dimension table flat reduces the amount of joins we have to make, which is an analytical benefit.
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 8/10 | All four parts addressed correctly in spirit |
+| Conceptual Depth | 7/10 | Surface-level on (b) and (d) — could go deeper on the *why* |
+| Vocabulary Precision | 7/10 | "Resemble a snowflake" is informal; could name the design pattern explicitly |
+| Trade-off Awareness | 7/10 | Identified the trade-off but didn't quantify it for our specific case |
+
+#### Model answer (9/10)
+
+(a) The proposal creates a **snowflake schema** — `dim_location` no longer holds borough/service_zone names directly; analysts traverse two additional joins (`dim_location` → `dim_borough`, `dim_location` → `dim_service_zone`) to access those attributes. This is *normalization depth*, breaking dimension attributes across multiple tables.
+
+(b) Snowflake schemas were the historical default in the OLTP-influenced era when storage was costly (~$1000/GB in 1995) AND mechanical disk seek time was the dominant query cost. Normalizing eliminated redundancy that would otherwise multiply storage cost and slow disk-bound queries. The pattern carried into early data warehousing because OLTP database engines (Oracle, SQL Server) were the dominant warehouse backends.
+
+(c) Modern columnar warehouses (Snowflake, BigQuery, Redshift) compress repeated dimension values via dictionary encoding — "Manhattan" stored 10M times costs nearly the same as stored once. Combined with cheap cloud storage, the historical case for snowflake schemas evaporates. Star schemas now win on query simplicity (one join per dimension) and analyst friendliness (flat dimensions are immediately readable).
+
+(d) For our specific case: `dim_location` has ~260 zones, ~5 boroughs, ~3 service zones. Storage savings from normalizing would be measured in kilobytes. Meanwhile, every analyst query filtering by borough or service zone would gain *two extra joins* — measurable query latency and notable cognitive overhead. Cost-benefit is asymmetric: trivial savings, real overhead. Star is the unambiguous win.
+
+#### Key lessons
+
+1. **Depth-per-part matters.** Each sub-part deserves *mechanism + consequence*, not just conclusion.
+2. **Quantify when scale is invoked.** "260-row dimension" is an invitation to do the math, not just gesture at the principle.
+3. **Historical context demonstrates depth.** Naming the OLTP-influenced era and disk-seek economics shows you understand *why* designs evolved.
+
+---
+
+### Q6 — Schema vs Semantics Stability
+
+**The question:**
+> You're hired to analyze a 10-year dataset of online ad impressions for a question about engagement trends. The schema is identical across all 10 years (good news!). Walk through your investigation plan to validate that the *semantics* are also stable across the period. Specifically: (a) what would you query, (b) what would you look for, and (c) name two distinct categories of semantic drift that schema-level inspection would miss.
+
+#### Bryan's answer — 6.0/10
+
+> a. I would SELECT all values and group them by column.  SELECT year, COUNT(*) FROM table GROUP BY year.
+> b. I would look for years where the column displays NULL or 0 values.
+> c. 2 examples of semantic drift that schema-level inspection would miss:
+> * querying the distributions of the data across long periods of time. e.g. part a.
+> * records that exist in the dataset but are flagged as inactive.
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 6/10 | (a) and (b) too thin to constitute an investigation plan; (c) names two examples but with weak categorization |
+| Conceptual Depth | 5/10 | The mental model wasn't fully reached for — "first thing that came to mind" rather than "applied framework" |
+| Vocabulary Precision | 7/10 | Reasonable terminology; "semantic drift" used correctly |
+| Trade-off Awareness | 6/10 | Implicit understanding present; not articulated |
+
+#### Model answer (9/10)
+
+(a) **Investigation queries** — for each suspect column (categorical/enum, ID columns, boolean flags, timestamps), query value distributions per year:
+```sql
+SELECT year, <column>, COUNT(*) AS row_count
+FROM table
+GROUP BY year, <column>
+ORDER BY year, row_count DESC;
+```
+
+(b) **What to look for:**
+- NULL-prevalence shifts (column unpopulated until policy launch)
+- Value distribution shifts (categorical values appearing/disappearing year-over-year)
+- Taxonomy expansion (e.g., "social" → "social_organic" + "social_paid")
+- Numerical scale changes (cost in cents vs dollars across migration)
+- Encoding/timezone changes
+- Definition shifts (what counts as an "impression" gets tightened)
+
+(c) **Three categories of semantic drift schema inspection misses:**
+
+1. **Policy-driven population gaps** — column exists from day 1 but only populated after a policy/feature launch (NYC's `congestion_surcharge` is the canonical example: schema has it from 2015, but every value is NULL until 2019)
+2. **Taxonomy/category evolution** — values within a categorical column expand, contract, or rename over time
+3. **Definition shifts** — what a value *means* changes even though the value itself stays consistent (e.g., "ad impression" gets a stricter viewability definition)
+4. **Soft-delete / activation state changes** — rows persist but their meaning shifts via flags
+5. **Unit/encoding changes** — same column, different unit (cents→dollars, local→UTC)
+
+#### Key lessons
+
+1. **Open-book leverage.** When a question explicitly hints at a mental model by name (here: Schema vs Semantics Stability), consult the doc before answering. The depth of those entries is exactly what produces 9/10 answers.
+2. **"Categories of drift" means categories, not examples.** Naming the *type* of drift (taxonomy, scale, definition) demonstrates internalized framework; naming an example only demonstrates exposure.
+
+---
+
+### Q7 — Type Drift Pipeline Decision
+
+**The question:**
+> You're loading historical NYC TLC data: 2013 (column type INTEGER), 2018 (DOUBLE), 2024 (BIGINT) for a column `trip_count`. Three approaches are proposed:
+>
+> 1. Cast everything to BIGINT in Python before loading
+> 2. Land raw types in `RAW`, cast in `STAGING` with `TRY_CAST` to BIGINT
+> 3. Use schema-evolution machinery (e.g., dbt-snowflake Iceberg tables) to handle evolution automatically
+>
+> Recommend one approach and explain why it's better than each of the other two for this specific scenario. Include one concrete failure mode each rejected approach would create.
+
+#### Bryan's answer — 7.5/10
+
+> Q7: I believe landing raw types in RAW and casting in STAGING with TRY_CAST would be the best decision in this case.
+> Why is this choice better than:
+> * casting to BIGINT in Python before loading: the datatype in 2018 is DOUBLE, explicitly casting without first checking could potentially lead to information loss, which could skew findings when someone analyzes this data. Would require a query to determine if fractional values exist.
+> * using schema-evolution machinery: this is historical data, so dealing with schema-evolution machinery is unnecessary as we will not have to deal with adding/dropping columns.
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 8/10 | Recommendation correct; both rejections technically sound |
+| Conceptual Depth | 7/10 | Rejection 1 has good depth; rejection 2 too compressed |
+| Vocabulary Precision | 8/10 | "Information loss," "fractional values" used correctly |
+| Trade-off Awareness | 7/10 | The *positive* case for option 2 wasn't fully articulated |
+
+#### Model answer (9/10)
+
+**Recommendation: Option 2 (TRY_CAST in STAGING).** Three positive reasons:
+1. **Failed casts become observable** as NULLs rather than blocking the load
+2. **Cast logic lives in version-controlled SQL** (dbt models) — testable, reviewable, easy to evolve
+3. **The "land raw, transform later" pattern preserves the original** — wrong assumptions can be re-applied without re-ingesting
+
+**Rejection of Option 1 (Python pre-cast):** Casting DOUBLE → BIGINT in Python silently truncates fractional values. If 2018 has `passenger_count = 6.5` rows (rare data quality issue), Python's `int()` writes 6 with no error or warning. The data quality issue is *hidden, not just unhandled*. Option 2 lands 6.5 in RAW, becomes NULL after TRY_CAST, and **is visible** as a data quality problem. Trade: simplicity for observability — wrong direction.
+
+**Rejection of Option 3 (schema-evolution machinery):** Iceberg/Delta adds operational complexity (partitioning strategies, time-travel config, schema-versioning policies) only justified when columns are *added or removed*. Our investigation confirmed type drift only, no column changes. Concrete failure mode: **opportunity cost / over-engineering** — engineering time spent configuring evolution machinery is time not spent on actual ingestion logic, dbt tests, or business value. Onboarding new engineers also gets harder.
+
+#### Key lessons
+
+1. **Defend rejected options with concrete failure modes**, not just verdicts. "Unnecessary" is a verdict; "over-engineering with X concrete cost" is a diagnosis.
+2. **Python pre-cast trades observability for simplicity.** That trade is wrong-directional in any data engineering context where data quality matters.
+3. **Senior signal:** knowing when *not* to reach for fancy infrastructure is itself a skill.
+
+---
+
+### Q8 — Surrogate Key Failure Mode
+
+**The question:**
+> Your colleague is implementing the SCD Type 2 logic for `dim_location` and decides to skip surrogate keys to "keep it simple" — using `location_id` directly as the primary key. They argue: "We have a `valid_from`/`valid_to` window, so we can always identify the right row by joining on `location_id` AND a date range comparison." Walk through what specifically goes wrong with this approach. Include both a correctness failure and a performance failure.
+
+#### Bryan's answer — 6.5/10
+
+> Q8:
+> the biggest issue with this approach is using the natural key as their primary key. When the location_id from the fact table JOINs with the location_id on the dimension table, it creates a Cartesian multiplication that will duplicate a fact row per dimension version of that product, which is not the sought after result. In the extreme case: say we have n dimension versions of the product, conducting a cartesian multiplication with a dataset that large will not only be incorrect, but it will be incredibly slow.
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 7/10 | Core concept right (one-to-many multiplication); two minor inaccuracies in framing |
+| Conceptual Depth | 6/10 | One unified failure described well, but question asked for **two distinct categories** |
+| Vocabulary Precision | 7/10 | "Cartesian multiplication" is correct technically but slightly imprecise here |
+| Trade-off Awareness | 6/10 | Conflated correctness and performance instead of separating them |
+
+#### Model answer (9/10)
+
+**Correctness failure:** Without surrogate keys, the fact table's foreign key (`location_id`) joins against the dimension's natural key, which appears in *multiple* SCD2 rows. Each fact row matches every historical version of its location — producing **fan-out / row multiplication**. An analyst computing `SELECT location_id, SUM(fare_amount) FROM fct_trips JOIN dim_location` would see each fare counted N times (N = number of dimension versions). Returns wrong values with no error. The colleague's "date range comparison" mitigation is supposed to fix this, but range filters are easy to write incorrectly (`<` vs `<=` boundary cases) and analysts copy-pasting joins will silently miss the date filter, reintroducing the bug.
+
+**Performance failure:** Even when the date range filter is correctly added (`f.trip_date >= dl.valid_from AND f.trip_date < dl.valid_to`), the join becomes a **range join** rather than an equality join. Modern columnar warehouses heavily optimize equality joins via hash tables — `INTEGER = INTEGER` lookups are near-constant-time per row. Range joins require interval-tree or sort-merge strategies, orders of magnitude slower at scale. Billion-row fact: 30 seconds with surrogates vs 30 minutes with natural-key range joins. Same correctness, dramatically different latency.
+
+The two failures have *different fixes* in the worst case (correctness needs data correction; performance needs query optimization), so naming them separately demonstrates understanding of failure categories.
+
+#### Key lessons
+
+1. **"Cartesian product" vs "fan-out join."** Cartesian = no join condition. Fan-out = one-to-many via non-unique join key. Different mechanics.
+2. **Multi-part questions need multi-part answers structurally.** When the question asks for X AND Y, the answer should have X-paragraph and Y-paragraph, not one combined paragraph that covers both.
+3. **Range joins ≠ equality joins** in performance terms. Worth knowing for any warehouse query optimization conversation.
+
+---
+
+### Q9 — Profiling Investigation Surprise
+
+**The question:**
+> You profile a new dataset and find that a column `customer_segment` has 47 distinct values when documentation says there should be only 5 (Bronze/Silver/Gold/Platinum/Diamond). Walk through your investigation plan — what queries would you run, in what order, and what hypotheses would you be testing? Identify at least three plausible root causes and what each would look like in your query results.
+
+#### Bryan's answer — 5.5/10
+
+> I hypothesize that our dataset was labeled incorrectly.
+> Queries I would run:
+> * Checking to see if the original customer_segment values are included in the 47 distinct values. If the values are not included, we can assume there was a mix up of the column names
+> * Checking if the values are associated with another column. If the values are not present, we can
+> * Query the values themselves to determine what column I would believe they would be from based on the context (works if the distinct values are not integers)
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 6/10 | "Labeling mix-up" hypothesis is plausible but only one possibility |
+| Conceptual Depth | 5/10 | Single hypothesis explored; question asked for at least three |
+| Vocabulary Precision | 6/10 | Two of three queries trail off mid-sentence ("we can ") |
+| Trade-off Awareness | 5/10 | No structured matching of queries-to-hypotheses |
+
+#### Model answer (9/10)
+
+**Three+ plausible root causes with diagnostic fingerprints:**
+
+1. **Documentation is stale.** Doc was written in 2020; business has added segments since then ("Diamond Plus," "Trial," "VIP"). Fingerprint: 5 documented values present with substantial counts; the other 42 are reasonable-looking strings; timestamps show new values appearing only after a date.
+   ```sql
+   SELECT customer_segment, MIN(created_at) AS first_seen, COUNT(*)
+   FROM customers GROUP BY customer_segment ORDER BY first_seen;
+   ```
+
+2. **Data quality issues — typos, casing, whitespace.** Fingerprint: clusters of "Gold"/"gold"/"GOLD"/" Gold ", "Platinum"/"Platnum"/"Platinium". Normalization query crashes count from 47 to ~5:
+   ```sql
+   SELECT TRIM(LOWER(customer_segment)) AS normalized, COUNT(*)
+   FROM customers GROUP BY normalized;
+   ```
+
+3. **Multi-tenancy or composite encoding.** Dataset is a union of business units, each with own segmentation; OR field is encoded "Gold-NY", "Gold/Premium". Fingerprint: structured composite values with separators, OR clean 5-segment pattern per region:
+   ```sql
+   SELECT region, customer_segment, COUNT(*)
+   FROM customers GROUP BY region, customer_segment;
+   ```
+
+4. **Source-system migration.** Field used to be INT (1-5 mapped externally) and migrated to VARCHAR mid-history. Old rows have "1"-"5"; new have name strings; buggy migration produces "1", "Bronze", "01", "BRONZE_TIER" mix.
+
+**Investigation order distinguishes between candidates:**
+1. Distribution + length query — values dominated by a few = typos likely (cause 2). Balanced = cause 1 or 3.
+2. Normalization query (lowercase + trim) — count crashes 47→5 = cause 2 confirmed.
+3. Time-ordered query — new values cluster after a date = cause 1.
+4. Cross-tabulation with region — 47 splits cleanly per region = cause 3.
+
+#### Key lessons
+
+1. **Investigation plan = decision tree.** Each query distinguishes between candidate hypotheses. "If I see X, then cause A; if Y, cause B."
+2. **"At least three" means at least three.** Count what the question asks for; verify your answer matches.
+3. **Diagnostic fingerprints separate good investigations from random poking.** Each hypothesis should have a *predictable* signature in the data.
+
+---
+
+### Q10 — Defending the Whole Design
+
+**The question:**
+> A new tech lead joins your team and questions the entire star schema design: *"Why are we using a separate `dim_date` table when every modern warehouse has built-in date functions? Why role-playing dimensions instead of just having `pickup_borough` and `dropoff_borough` columns directly in the fact? And why a flat `dim_location` when we can compute everything from PostGIS-style spatial libraries?"* Defend each of the three design choices. For each, explain (a) what concrete capability you'd lose with their proposal, and (b) what skill or interview-relevant signal the proper version demonstrates.
+
+#### Bryan's answer — 5.5/10
+
+> Using "built-in" date functions makes our company lose the capability to define our personal company calendar, each companies has a different schedule, different timelines, so attempting to coalesce these all into one "built-in" function can lose the company a lot of relevant information. We use role-playing dimensions because our locations are more finely grained than the general boroughs. We use unique zones that have been defined by the TLC, and using boroughs would be reductive and would result in data loss. We have a flat dim_location for the partially the same reason. We use two columns from dim_location simultaneously in order to correctly measure pick up and drop off areas. Using a PostGIS-style spacial library would make our maps too finely grained, leading to potential inaccuracies when it comes to analysis.
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 5/10 | All three challenges addressed but with significant misreads on Challenges 2 and 3 |
+| Conceptual Depth | 5/10 | One angle per challenge; question asked for two angles each (capability + signal) |
+| Vocabulary Precision | 6/10 | "Coalesce" used loosely; "role-playing" rationale not actually about role-playing |
+| Trade-off Awareness | 6/10 | Real cost identified for `dim_date`; weaker for the other two |
+
+#### Model answer (9/10)
+
+**Challenge 1 — `dim_date` vs built-in date functions:**
+- (a) Capability lost: organization-specific calendar concepts. Built-in functions extract `MONTH(timestamp)` but don't know your fiscal year starts in February, your company-specific holidays, or that Juneteenth became a federal holiday in 2021. Every analyst would re-implement this logic in queries, with subtle differences (one uses `MONTH`, another `TO_CHAR(ts, 'MMMM')`, a third ISO week).
+- (b) Signal: senior-level data modeling. Knowing calendar logic belongs in a centralized dimension to ensure consistency across all reports — not scattered through individual queries — is a portfolio-grade signal.
+
+**Challenge 2 — Role-playing dimensions vs denormalized columns:**
+- (a) Capability lost: every other location attribute beyond borough. Denormalizing `pickup_borough` directly into the fact loses zone, service_zone, future neighborhood/district/centroid additions. Either you explode the fact with 6+ denormalized columns to maintain, or you lose ability to filter by anything except borough. Worse: zone-name change = millions of fact-row UPDATEs instead of one dimension-row UPDATE.
+- (b) Signal: **understanding of dimensional modeling fundamentals.** (1) dimensions exist to centralize attribute changes, (2) the same physical entity can play multiple semantic roles in a fact, (3) SQL aliases disambiguate roles. Most junior engineers default to denormalizing and learn the cost when fact tables grow to 50 columns and zone renames cascade into multi-billion-row UPDATEs.
+
+**Challenge 3 — Flat `dim_location` vs PostGIS:**
+- (a) Capability lost: PostGIS-based dynamic zone computation requires (1) actual lat/lng in the fact (TLC stopped publishing in 2016 — switched to LocationIDs precisely to anonymize), (2) per-query point-in-polygon math against 260 zone polygons for every fact row scanned, and (3) PostGIS or equivalent in your warehouse. You'd be doing per-query work that should be done once at ingestion. Worst: you lose the ability to handle historical zone changes via SCD2 — polygons have no native concept of "this zone's name in January 2024 vs December 2024."
+- (b) Signal: **knowing when *not* to reach for fancy infrastructure.** PostGIS is powerful but for our use case (260 zones, lookup-only, no spatial analysis needed) it's massive over-engineering. Senior engineers know "we *could* use PostGIS" and "we *should* use PostGIS" are different questions.
+
+#### Key lessons
+
+1. **Read the proposal carefully before defending.** Challenge 2 wasn't about zone-vs-borough granularity; it was about denormalizing already-resolved borough names. Challenge 3 wasn't about PostGIS being "too fine-grained"; it was about lookup tables vs dynamic spatial computation.
+2. **Enumeration depth.** Question explicitly asked "(a) capability lost AND (b) signal demonstrated" — six items total. Six should be delivered.
+3. **The "interview signal" framing is meta.** Defending a design is not just "is this right?" but "what does this design *say* about the engineer who built it?"
+4. **Diagnostic question for multi-part:** "How many distinct things does this question ask me to enumerate? Have I named that many?"
 
 ---
 

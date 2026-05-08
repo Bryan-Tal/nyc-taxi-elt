@@ -16,7 +16,8 @@
 
 - [Phase 0 — Platform Foundation (Setup)](#phase-0--platform-foundation-setup)
   - [Phase 0 Re-drill](#phase-0-re-drill-triggered-by-74510-average) *(triggered by below-threshold drill average)*
-- [Phase 1 — Data Source & Exploration](#phase-1--data-source--exploration) *(coming soon)*
+- [Phase 1 — Data Source & Exploration](#phase-1--data-source--exploration)
+  - [Phase 1 Re-drill](#phase-1-re-drill-triggered-by-68510-average) *(triggered by below-threshold drill average)*
 - [Phase 2 — Ingestion Layer](#phase-2--ingestion-layer) *(coming soon)*
 - [Phase 3 — dbt Transformations](#phase-3--dbt-transformations) *(coming soon)*
 - [Phase 4 — Orchestration with Airflow](#phase-4--orchestration-with-airflow) *(coming soon)*
@@ -178,7 +179,163 @@
 
 ## Phase 1 — Data Source & Exploration
 
-*Questions will be added at the end of Phase 1.*
+*Drill date: TBD. Covers grain, dimension classification, SCD types, role-playing dimensions, star vs snowflake, schema evolution, type drift handling.*
+
+### Synthesis Questions
+
+#### Q1 — Grain & Its Consequences
+
+> Your fact table `fct_shipments` has columns: `shipment_id`, `customer_id`, `origin_warehouse_id`, `destination_address_id`, `carrier_id`, `weight_lbs`, `total_cost`, `shipped_at`, `delivered_at`. State the grain in one sentence. Then describe **two analytical questions this grain supports** and **two analytical questions it does NOT support** (and what grain you would need for those). Be specific about why.
+
+**Hint:** Apply the Grain First mental model. Look at what column combinations would have to be unique for each row to represent a single instance of something.
+
+**Resources:** `mental-models.md` §5 (Grain First, Schema Second), flashcard "Grain"
+
+---
+
+#### Q2 — Dimension Classification
+
+> A teammate is designing a fact table for an e-commerce orders dataset and shows you these source columns: `order_id`, `customer_id`, `product_id`, `coupon_code` (string, ~50 distinct values like "SUMMER10"), `discount_amount` (decimal), `is_gift` (boolean), `order_status` (string: "pending"/"shipped"/"delivered"/"cancelled"), `device_type` (string: "mobile"/"desktop"/"tablet"). For each non-PK column, classify it as: dimension table / degenerate dimension / pure measure. Justify each classification using the Richness Test.
+
+**Hint:** Three tests for "dimension table": cardinality > 2-5, stability of values, descriptive richness. Failing any → degenerate. Continuous numeric measures → pure measure.
+
+**Resources:** `mental-models.md` §6 (Richness Test), flashcards "Degenerate Dimension Heuristic"
+
+---
+
+#### Q3 — SCD Type Reasoning
+
+> For an analytical warehouse tracking historical product sales, you have three dimensions:
+>
+> - `dim_product` — products are renamed occasionally (e.g., "iPhone 14 Pro" → "iPhone 14 Pro Max"); we want historical reports to show what the product was called at the time of sale
+> - `dim_category` — broad categories like "Electronics", "Apparel", "Home Goods" — categories rarely change, but a typo correction in 2024 changed "Apparrel" to "Apparel"
+> - `dim_currency` — `currency_code`, `currency_name`, `symbol` — currency codes are stable; descriptions are stable
+>
+> Assign an SCD type (0/1/2/3) to each dimension and explain your reasoning. **Address all three dimensions explicitly.**
+
+**Hint:** SCD type is determined by what *changes*, not what's *added*. Ask: when an existing row's attributes change, what should historical analyses see?
+
+**Resources:** `mental-models.md`, flashcards "SCD Type 1/2/3", `design-doc.md` §5.3
+
+---
+
+#### Q4 — Role-Playing Dimensions
+
+> Explain (a) what a role-playing dimension is, (b) why our project uses one for `dim_location` and `dim_date`, and (c) write the SQL skeleton (no need for a complete query — just JOINs and aliases) showing how you'd query "for each pickup borough, what's the average trip duration grouped by pickup day-of-week?" using the role-playing dimensions correctly.
+
+**Hint:** Role-playing means the same dimension table referenced multiple times by one fact, with each reference playing a different role. SQL aliases disambiguate.
+
+**Resources:** `design-doc.md` §5.6, flashcard "Role-playing dimension"
+
+---
+
+#### Q5 — Star vs Snowflake (Comparison)
+
+> A senior engineer reviews your `dim_location` design and proposes normalizing it into three tables: `dim_location` (location_id, zone, borough_id, service_zone_id), `dim_borough` (borough_id, borough_name), `dim_service_zone` (service_zone_id, service_zone_name). Defend your choice to keep `dim_location` flat. Address: (a) what shape this proposal would create, (b) historically why this normalized shape existed, (c) why modern columnar warehouses make it less compelling, and (d) the specific cost-benefit for our 260-row dimension.
+
+**Hint:** Same shape of question as Q10 from Phase 0 — defend the design choice with specific risks the alternative exposes you to.
+
+**Resources:** `design-doc.md` §5.1, `mental-models.md`, flashcard "Star vs Snowflake Schema"
+
+---
+
+#### Q6 — Schema vs Semantics Stability (Synthesis)
+
+> You're hired to analyze a 10-year dataset of online ad impressions for a question about engagement trends. The schema is identical across all 10 years (good news!). Walk through your investigation plan to validate that the *semantics* are also stable across the period. Specifically: (a) what would you query, (b) what would you look for, and (c) name two distinct categories of semantic drift that schema-level inspection would miss.
+
+**Hint:** Apply the new mental model directly. Two-pass investigation: structural pass + semantic pass.
+
+**Resources:** `mental-models.md` §7 (Schema vs Semantics Stability), flashcard "Schema vs Semantics Stability"
+
+---
+
+### Scenario Questions
+
+#### Q7 — Type Drift Pipeline Decision
+
+> You're loading historical NYC TLC data: 2013 (column type INTEGER), 2018 (DOUBLE), 2024 (BIGINT) for a column `trip_count`. Three approaches are proposed:
+>
+> 1. Cast everything to BIGINT in Python before loading
+> 2. Land raw types in `RAW`, cast in `STAGING` with `TRY_CAST` to BIGINT
+> 3. Use schema-evolution machinery (e.g., dbt-snowflake Iceberg tables) to handle evolution automatically
+>
+> Recommend one approach and explain why it's better than each of the other two for this specific scenario. Include one concrete failure mode each rejected approach would create.
+
+**Hint:** The right answer ties to the architectural conclusion of our Phase 1 Step 3 investigation. Type-tolerant casting in STAGING is the chosen pattern.
+
+**Resources:** `design-doc.md` §7, flashcards "TRY_CAST vs CAST", "Type Coercion Safety"
+
+---
+
+#### Q8 — Surrogate Key Failure Mode
+
+> Your colleague is implementing the SCD Type 2 logic for `dim_location` and decides to skip surrogate keys to "keep it simple" — using `location_id` directly as the primary key. They argue: "We have a `valid_from`/`valid_to` window, so we can always identify the right row by joining on `location_id` AND a date range comparison." Walk through what specifically goes wrong with this approach. Include both a correctness failure and a performance failure.
+
+**Hint:** Surrogate keys give you exactly-one-match-per-fact-row. Without them, fact joins become range-based rather than equality-based.
+
+**Resources:** `design-doc.md` §5.4, flashcard "Surrogate Key vs Natural Key"
+
+---
+
+#### Q9 — Profiling Investigation Surprise
+
+> You profile a new dataset and find that a column `customer_segment` has 47 distinct values when documentation says there should be only 5 (Bronze/Silver/Gold/Platinum/Diamond). Walk through your investigation plan — what queries would you run, in what order, and what hypotheses would you be testing? Identify at least three plausible root causes and what each would look like in your query results.
+
+**Hint:** Apply the Predict Before You Query mental model. Then plan investigative queries that would distinguish between plausible explanations.
+
+**Resources:** `mental-models.md` §4 (Predict Before You Query)
+
+---
+
+#### Q10 — Defending the Whole Design
+
+> A new tech lead joins your team and questions the entire star schema design: *"Why are we using a separate `dim_date` table when every modern warehouse has built-in date functions? Why role-playing dimensions instead of just having `pickup_borough` and `dropoff_borough` columns directly in the fact? And why a flat `dim_location` when we can compute everything from PostGIS-style spatial libraries?"* Defend each of the three design choices. For each, explain (a) what concrete capability you'd lose with their proposal, and (b) what skill or interview-relevant signal the proper version demonstrates.
+
+**Hint:** This is the Phase 1 equivalent of Phase 0 Q10 (Design Defense). Multiple sub-parts; address each explicitly.
+
+**Resources:** Whole `design-doc.md`, especially §5
+
+---
+
+### Phase 1 Re-drill (Triggered by 6.85/10 Average)
+
+*Drill date: 2026-05-07. Average across original Q1–Q10 fell below the 8.0 threshold. The three questions below target the lowest-scoring originals (Q9: 5.5, Q10: 5.5, Q6: 6.0) using the same underlying concepts in fresh scenarios — to confirm understanding without rewarding memorization.*
+
+*Rules: average ≥8.0 across all three to greenlight Phase 2. Address every sub-part. Per re-drill consolidation rule, EACH question gets a consolidation session BEFORE re-testing — confused fundamentals are walked through Socratically first, then the re-drill question is asked.*
+
+#### Q-Re-1 — Re-drill of Q9 (Profiling Investigation)
+
+> You're profiling a new HR analytics dataset for a Fortune 500 company. The column `department_code` is documented as a 4-character code (e.g., "FINX", "HRBP", "ENGG"). When you query distinct values, you find 327 distinct codes — some 4 characters, some 3, some 5, some with hyphens, some with numbers. Walk through your investigation plan: (a) what queries would you run in what order, (b) what hypotheses are you testing with each query, and (c) name **at least three plausible root causes** with the specific data signature each would leave in your query results.
+
+**Why this variant:** same concept (structured profiling investigation), different domain (HR data instead of customer segments). Tests whether the *enumeration depth + decision-tree investigation* pattern transferred or whether it was answer-specific to the original question.
+
+**Hint:** This is the enumeration-depth pattern in disguise. Count what's asked: **at least three causes, each with diagnostic fingerprints, plus the queries that would distinguish them.** A complete answer enumerates each cause with its expected data signature.
+
+**Resources:** `mental-models.md` §4 (Predict Before You Query), §7 (Schema vs Semantics Stability). Re-read your original Q9 answer in `synthesis-answers.md` for the gap pattern.
+
+---
+
+#### Q-Re-2 — Re-drill of Q10 (Design Defense)
+
+> A staff engineer reviews your dbt project and questions three design choices: *"(1) Why are we materializing fct_trips as a table instead of a view — views are cheaper to maintain. (2) Why use surrogate keys at all when we could just join on the natural keys directly — it's one fewer column to maintain. (3) Why have a separate STAGING layer when we could just transform RAW directly into MARTS?"* Defend each design choice. For each, explain **(a) what concrete capability you'd lose** with their proposal AND **(b) what skill or interview-relevant signal the proper version demonstrates.** Address all six sub-parts (3 challenges × 2 angles each).
+
+**Why this variant:** same design-defense pattern, different design choices, fresh interview scenario. Specifically tests whether the **enumeration depth on multi-part questions** lesson transferred. The original Q10 only addressed (a) for each challenge; this re-drill explicitly enumerates the six items.
+
+**Hint:** Six items to address. Apply the diagnostic question: *"How many distinct things does this question ask me to enumerate? Have I named that many?"* If you find yourself wrapping up after three points, you're not done.
+
+**Resources:** `design-doc.md` for the architecture decisions; `mental-models.md` for the patterns to invoke.
+
+---
+
+#### Q-Re-3 — Re-drill of Q6 (Schema vs Semantics Stability)
+
+> You inherit an 8-year e-commerce orders dataset from a previously-acquired company that you're now integrating. The schema is identical across all 8 years. Walk through your investigation plan to validate the *semantics* are stable: (a) what queries would you run, (b) what would you specifically look for in the results, and (c) name **three distinct categories of semantic drift** schema-level inspection would miss — for each category, give a concrete example of what it might look like in this e-commerce dataset.
+
+**Why this variant:** same mental model (Schema vs Semantics Stability), different domain (e-commerce instead of ad impressions), with a tighter requirement that each category include an example *grounded in the e-commerce context*. Tests whether the mental-model framework was internalized or just exposed.
+
+**Hint:** Open the `mental-models.md` doc. §7 (Schema vs Semantics Stability) has a "diagnostic ritual" with specific drift categories enumerated. The re-drill rewards reaching for this structure rather than improvising.
+
+**Resources:** `mental-models.md` §7 specifically. The original Q6 model answer in `synthesis-answers.md` for the gap pattern.
 
 ---
 

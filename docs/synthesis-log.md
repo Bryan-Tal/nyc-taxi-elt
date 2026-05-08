@@ -17,8 +17,11 @@
 | Pattern | First seen | Frequency | Notes |
 |---|---|---|---|
 | Vocabulary precision on layered systems (role vs principal, integration vs stage, image vs container) | Phase 0 Q1 | 4x in Phase 0 | Recurring — affects identity enumeration, IAM, Docker explanations |
-| Answer completeness — addressing every part of multi-part questions | Phase 0 Q2 | 3x in Phase 0 | When question asks "X and Y," tendency to answer X thoroughly and Y briefly |
+| Answer completeness — addressing every part of multi-part questions | Phase 0 Q2 | 3x in Phase 0; **improved** in Phase 1 (every Q1-Q10 answer covered all parts) | When question asks "X and Y," tendency to answer X thoroughly and Y briefly |
 | Senior-depth language (naming AWS API actions, Snowflake primitives by exact term) | Phase 0 Q5 | 3x in Phase 0 | Knows the concepts; doesn't always reach for the precise term |
+| **Enumeration depth on multi-part questions** | Phase 1 Q5, Q8, Q9, Q10 | 4x in Phase 1 | When question asks for N items (e.g., "at least three causes"), answer often gives 1-2 with full reasoning instead of N each. Different from answer-completeness — that's about covering sub-parts; this is about the count *within* a sub-part. Diagnostic: "How many distinct things does this question ask me to enumerate? Have I named that many?" |
+| **Reading proposals/scenarios carefully before defending** | Phase 1 Q4 SQL, Q10 challenges 2 & 3 | 3x in Phase 1 | When defending against a proposal, answer addresses a *related but different* question. Diagnostic: "Re-state the proposal in your own words before defending." |
+| **Open-book consultation under drill conditions** | Phase 1 Q6 | 1x in Phase 1 | When question explicitly hints at a mental model by name, doesn't reach for the doc. Open-book leverage is unused. Diagnostic: "Did the question name a model/framework? Consult that section before answering." |
 | *(more patterns added as they emerge)* | | | |
 
 ## Strong Patterns Worth Reinforcing
@@ -30,6 +33,9 @@
 | Self-directed consolidation | Q-Re-2 (Phase 0 re-drill) | When a concept came in below threshold, Bryan paused for a deliberate consolidation session before re-attempting — slowing down to actually understand rather than memorize. Drove a +2.0 score improvement (6.5 → 8.5) on the same question with a different scenario. This is a senior-engineer instinct. |
 | Pattern transfer across scenarios | Q-Re-3 (Phase 0 re-drill) | Bidirectional defense-in-depth argument originally taught with STORAGE_ALLOWED_LOCATIONS + IAM transferred cleanly to gitignore + IAM. Same argument shape applied to different specifics. This signals the underlying mental model has internalized rather than been memorized. |
 | Layer/scope discipline as meta-skill | Across all three Phase 0 re-drills | Q-Re-1 (system cast vs runtime cast), Q-Re-2 (six-layer config cascade), Q-Re-3 (bidirectional defense layers) — all three improvements came from the same meta-skill of separating layers/scopes/directions and naming each precisely. The original drill's recurring "vocabulary precision on layered systems" weakness had a single root cause that the re-drill systematically addressed. |
+| **Answer-completeness improvement** | Phase 1 (vs Phase 0) | Phase 0's recurring pattern was "skip a sub-part entirely." Phase 1 every question (Q1-Q10) addressed every sub-part in some form — measurable improvement in coverage discipline. The next layer (enumeration depth within sub-parts) is the new growth area. |
+| **Honest "I'm not sure"** | Phase 1 banked SQL Q (part c) | When asked about Snowflake performance tuning levers, said "I'm not sure" instead of guessing. This is the right call — preserves trust in scoring and surfaces a real study target (warehouse query optimization) rather than papering over the gap with confident-wrong reasoning. |
+| **Strong concept fluency on dimensional modeling** | Phase 1 Q2 (8.0), Q3 (8.5), banked SCD2 Q (8.0) | Core dimensional modeling concepts (Richness Test, SCD types, surrogate-key implications) are solid and articulated crisply. The drill's lower scores cluster around *applying* these concepts in multi-part / depth-required formats, not in *understanding* them. |
 
 ---
 
@@ -78,7 +84,30 @@ Improvement across the three weakest topics: +6.0 points combined (5.5→7.5, 6.
 
 ## Phase 1 — Hardest Questions
 
-*To be added at end of Phase 1.*
+*Drill date: 2026-05-07 — Original average: 6.85/10. Re-drill in progress (Q9, Q10, Q6 targeted).*
+
+### Original drill
+
+| Q# | Score | Why it was hard | Key takeaway |
+|---|---|---|---|
+| Q1 | 7.0/10 | Grain stated descriptively rather than as a precise noun phrase | Grain statements are single-noun precise: "one row per X" |
+| Q2 | 8.0/10 ✓ | Two minor under-classifications (coupon_code, order_status borderline) | Apply richness test, not just cardinality. Use shortcut: "would an analyst JOIN for richer text?" |
+| Q3 | 8.5/10 ✓ | Compressed reasoning; could connect SCD choice to schema implication | Type 2 → surrogate keys required. Type 1 → no validity windows. Type 0 → no change-tracking. |
+| Q4 | 7.0/10 | SQL has 4 specific bugs (alias-as-column, natural-key join, interval arithmetic, group-by-table) | Concept solid, execution buggy. Phase 3 dbt work is the proving ground. |
+| Q5 | 7.5/10 | All four parts addressed but each at one level of depth | Depth-per-part: each sub-part deserves mechanism + consequence |
+| Q6 | 6.0/10 | Mental model wasn't fully reached for; "(c) categories" answered with examples | Open-book leverage: when question explicitly hints at a mental model, consult the doc |
+| Q7 | 7.5/10 | Rejection of Option 3 too compressed; missed naming concrete failure mode | Defend rejected options with concrete failure modes, not verdicts |
+| Q8 | 6.5/10 | Conflated correctness and performance into one failure | Multi-part questions need multi-part answers structurally |
+| Q9 | 5.5/10 | One hypothesis fixated on instead of three; queries didn't distinguish hypotheses | Investigation plan = decision tree where each query rules in/out specific causes |
+| Q10 | 5.5/10 | Misread Challenges 2 and 3; only addressed (a) sub-part, not (b); only 3 of 6 items | Read proposal carefully; count what question asks for; address each enumeration |
+
+### Re-drill
+
+| Q# | Score | Why it was hard | Key takeaway |
+|---|---|---|---|
+| Q-Re-1 (was Q9: 5.5) | (pending) | (pending) | (pending) |
+| Q-Re-2 (was Q10: 5.5) | (pending) | (pending) | (pending) |
+| Q-Re-3 (was Q6: 6.0) | (pending) | (pending) | (pending) |
 
 ---
 
