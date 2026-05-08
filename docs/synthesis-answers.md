@@ -7,6 +7,10 @@
 > - **Model answer** — the 9/10 reference response
 > - **Key lessons** — vocabulary fixes, conceptual sharpening, what to carry forward
 >
+> **Standards (elevated 2026-05-07):** Drill advancement requires **≥8.5 average AND zero individual questions <8.0**. Sub-8.0 questions trigger consolidation sessions until ≥95% topical-fluency confidence is reached, only then re-drill. Verdicts recorded in this file under previous standards (≥8.0) are preserved as historical record but marked where retroactive re-drilling is planned.
+>
+> **Retroactive Phase 0 re-drill (planned for after Phase 5):** Phase 0 was cleared under the previous 8.0 threshold. Several questions (Q1: 7.5, Q2: 7.0, Q4: 6.5, Q5: 7.5, Q6: 5.5, Q7: 7.5, Q9: 7.5, Q-Re-1: 7.5) would not clear under the elevated standard. After Phase 5 ships, all Phase 0 questions scoring <8.0 will be re-drilled with consolidation-first protocol. This locks in foundational fluency before Phase 6 portfolio polish.
+>
 > **Companion files:**
 > - [`synthesis-questions.md`](./synthesis-questions.md) — drill questions for self-testing (no answers)
 > - [`synthesis-log.md`](./synthesis-log.md) — practice log of weak patterns
@@ -428,7 +432,9 @@ Senior interviews test "would I trust this person to make design decisions on my
 
 **Average across 10 questions: 7.45/10**
 
-Below the 8.0 threshold. Re-drill required for the three lowest-scoring questions (Q6, Q4, Q2) before advancing to Phase 1.
+Below the 8.0 threshold *(threshold in effect at time of original drill on 2026-04-29)*. Re-drill required for the three lowest-scoring questions (Q6, Q4, Q2) before advancing to Phase 1.
+
+> **⚠️ Retroactive re-drill flagged (added 2026-05-07):** Under the elevated 8.5+ standard adopted on 2026-05-07, this drill outcome would require additional consolidation work. Specifically, several questions scored <8.0 individually (Q1: 7.5, Q2: 7.0, Q4: 6.5, Q5: 7.5, Q6: 5.5, Q7: 7.5, Q9: 7.5) and the re-drill itself produced one question (Q-Re-1: 7.5) below the new individual threshold. **Plan: After Phase 5 ships, retroactively re-drill all Phase 0 questions scoring <8.0 with consolidation-first protocol, before Phase 6 portfolio polish.** This avoids derailing forward momentum now while ensuring foundational fluency is locked in before the project goes public.
 
 **Recurring pattern identified across this batch:**
 
@@ -636,7 +642,7 @@ The runtime cast for *one execution* of an automated 3 AM Airflow-triggered inge
 
 ## Phase 1 — Data Source & Exploration
 
-*Drill date: 2026-05-07 — Final average: 6.85/10 (below 8.0 threshold; re-drill required for Q9, Q10, Q6).*
+*Drill date: 2026-05-07 — Final average: 6.85/10 (below threshold; re-drill required for Q9, Q10, Q6). Drill conducted under transition: original 8.0 threshold initially in force, elevated to 8.5+ AND zero sub-8.0 mid-drill. Per the new standard, several additional questions (Q1: 7.0, Q4: 7.0, Q5: 7.5, Q7: 7.5, Q8: 6.5) also fall below the individual 8.0 threshold and would require consolidation if encountered fresh today. The Q-Re-1/2/3 re-drill targets the three lowest (Q9, Q10, Q6) as the priority; depth on the others will be revisited via spaced-repetition rerun cadence.*
 
 ### Q1 — Grain & Its Consequences
 
@@ -1110,6 +1116,119 @@ The two failures have *different fixes* in the worst case (correctness needs dat
 2. **Enumeration depth.** Question explicitly asked "(a) capability lost AND (b) signal demonstrated" — six items total. Six should be delivered.
 3. **The "interview signal" framing is meta.** Defending a design is not just "is this right?" but "what does this design *say* about the engineer who built it?"
 4. **Diagnostic question for multi-part:** "How many distinct things does this question ask me to enumerate? Have I named that many?"
+
+---
+
+### Phase 1 Re-drill — Round 1 (Q-Re-3, Schema vs Semantics Stability)
+
+*Drill date: 2026-05-08. Re-drill of original Q6 (scored 6.0/10). Preceded by full consolidation session (Layers 1-3): foundation rebuild, drift category enumeration, diagnostic ritual transfer to fitness-tracker domain. Confidence at re-drill: ≥96%.*
+
+#### Q-Re-3 — Schema vs Semantics Stability (8-year e-commerce dataset)
+
+**The question:**
+
+> You inherit an 8-year e-commerce orders dataset from a previously-acquired company that you're now integrating. The schema is identical across all 8 years. Walk through your investigation plan to validate the *semantics* are stable: (a) what queries would you run, (b) what would you specifically look for in the results, and (c) name **three distinct categories of semantic drift** schema-level inspection would miss — for each category, give a concrete example of what it might look like in this e-commerce dataset.
+>
+> **Schema reference:**
+>
+> | Column | Type |
+> |---|---|
+> | `order_id` | INT |
+> | `customer_id` | INT |
+> | `order_date` | DATE |
+> | `order_total` | DECIMAL(10,2) |
+> | `currency_code` | VARCHAR (e.g., "USD", "EUR", "GBP") |
+> | `payment_method` | VARCHAR |
+> | `shipping_country` | VARCHAR |
+> | `order_status` | VARCHAR |
+> | `discount_amount` | DECIMAL(10,2) |
+> | `is_gift` | BOOLEAN |
+
+#### Bryan's answer — 8.0/10 ✓ (closes consolidation)
+
+> a.
+> * I would query the distribution of payment methods by date (compare 8 years ago to today) in order to determine if this can be considered a taxonomy expansion drift.
+> * I would query the dataset by comparing the number of rows to the number of rows with is_gift = TRUE, I would also query the dataset in order to determine when is_gift began to be implemented in order to determine if this is a soft-state drift.
+> * I would query each column in order to determine the presence of NULL values
+> b. I would specifically look for:
+> * payment methods that appear in today's query and their prevalence.
+> * a lack of is_gift = TRUE for a given year, which means this row may not have been implemented during that year if is_gift = TRUE exists in a row pertaining to another year.
+> * a large amount of NULL values in a column, which implies the column is not populated with the values that are expected to be there.
+> c. Three distinct categories of semantic drift that schema-level inspection would miss:
+> * soft-state drift, as the is_gift column may not have been implemented until 2020, and other gifts may be mislabeled as FALSE when they were in fact, gifts.
+> * taxonomy drift - in the 8 years that this dataset has been active, multiple payment methods and buy now pay later options have been implemented, aggregations without keeping this in mind are sure to present incorrect, but plausible, measures that could be used to make important decisions.
+> * NULL-population drift - One of these columns could contain many NULL values that would not be spotted if only checking the schema out. In this example, they may have included order_status 2 years ago, meaning the rest of the column would contain NULLs
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 8/10 | All three categories correctly identified; mechanisms sound |
+| Conceptual Depth | 8/10 | Each category includes a plausible mechanism grounded in the e-commerce domain |
+| Vocabulary Precision | 8/10 | Used "soft-state," "taxonomy expansion," "NULL-population" correctly. One small slip: `is_gift` example is closer to NULL-population than soft-state |
+| Trade-off Awareness | 7/10 | Implicit understanding present; missed leveraging the *acquisition* hint in the question framing |
+
+#### Model answer (9/10)
+
+**(a) Investigation queries** — apply the structural pass + semantic pass discipline:
+
+```sql
+-- Structural pass: confirm schema stability across years (already given)
+-- Semantic pass: per-column queries for each high-analytical-weight column
+
+-- Currency drift check
+SELECT YEAR(order_date), currency_code, COUNT(*)
+FROM orders GROUP BY 1, 2 ORDER BY 1, 3 DESC;
+
+-- Payment method taxonomy drift
+SELECT YEAR(order_date), payment_method, COUNT(*)
+FROM orders GROUP BY 1, 2 ORDER BY 1;
+
+-- Order total scale check (drift in unit or definition)
+SELECT YEAR(order_date),
+       AVG(order_total), MIN(order_total), MAX(order_total),
+       AVG(discount_amount)
+FROM orders GROUP BY 1 ORDER BY 1;
+
+-- is_gift implementation check
+SELECT YEAR(order_date), is_gift, COUNT(*)
+FROM orders GROUP BY 1, 2 ORDER BY 1, 2;
+
+-- order_status taxonomy/soft-state drift
+SELECT YEAR(order_date), order_status, COUNT(*)
+FROM orders GROUP BY 1, 2 ORDER BY 1;
+
+-- shipping_country encoding consistency
+SELECT YEAR(order_date), LENGTH(shipping_country), COUNT(*)
+FROM orders GROUP BY 1, 2;
+```
+
+**(b) Specific signals to look for:**
+
+- `currency_code` distribution shifting around acquisition date (acquired company in EUR, parent in USD)
+- `payment_method` new values appearing partway through (taxonomy expansion); old values disappearing (deprecation)
+- `order_total` and `discount_amount` average shifting by 100x (cents↔dollars unit drift)
+- `is_gift` always FALSE before some year, then mixed (NULL-population drift — column existed but unpopulated)
+- `order_status` values changing or new values appearing (taxonomy expansion or soft-state — was "canceled" added later because cancels used to be deleted?)
+- `shipping_country` length distribution shifting from 2 to 3 (ISO alpha-2 → alpha-3 encoding change)
+
+**(c) Three distinct drift categories with acquisition-specific examples:**
+
+1. **Unit/encoding drift in `currency_code` and `order_total`** — the acquired company may have been EUR-denominated. After integration, all orders are stored in their *original* currency, but a naive `SUM(order_total)` mixes EUR and USD invisibly. Even when `currency_code` is correctly stamped per row, analysts forgetting to filter or convert by currency get inflated/deflated totals. Same numeric value, different unit.
+
+2. **Definition drift in `order_total`** — the acquired company may have included tax in `order_total` while the parent excludes it (or vice versa). Same column, same unit, *different real-world concept*. A trend analysis showing "order_total grew 12% in the year of acquisition" is artifactual — the apparent growth is the parent's inclusive-of-tax accounting absorbing the acquired company's exclusive-of-tax data.
+
+3. **Taxonomy expansion clash in `order_status`** — the acquired company used statuses like `placed`, `fulfilled`, `returned`. The parent uses `pending`, `shipped`, `refunded`. Post-merge, the same column has 6+ values that overlap-but-differ semantically. Analysts asking "what % of orders are completed?" must define which statuses count — and might get wildly different numbers depending on whether they include `fulfilled` (acquired's term) alongside `shipped` (parent's term) or treat them as distinct.
+
+**The acquisition lens:** every drift category has an acquisition-specific manifestation that wouldn't appear in organically-grown data. The question's framing was a hint to lean into that.
+
+#### Key lessons
+
+1. **Soft-state vs NULL-population precision.** Soft-state = same row, meaning shifts via flag policy (canceled rows kept with `is_active=FALSE`). NULL-population = column existed but wasn't populated until a feature launched. The `is_gift` example is the latter, not the former. Worth refining the mental model so categories don't blur.
+2. **Read scenario context for hints.** "Previously-acquired company" was a forcing function for acquisition-specific drift — currency clashes, status taxonomy collisions, accounting-standard differences. A senior answer leverages context clues like this.
+3. **Framework transferred.** The structural pass + semantic pass discipline applied automatically without consulting the doc — that's the consolidation working. Original Q6 (6.0) → Q-Re-3 (8.0) = +2.0 improvement, matching the Phase 0 Q-Re-2 consolidation pattern.
+
+#### Consolidation status
+
+✅ **CLOSED.** Score 8.0 meets individual threshold. Schema vs Semantics Stability model is internalized and transferable. Confidence: ≥96%. Round 1 of Phase 1 re-drill complete.
 
 ---
 

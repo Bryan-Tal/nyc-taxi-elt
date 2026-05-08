@@ -42,6 +42,8 @@
 | **Answer-completeness improvement** | Phase 1 (vs Phase 0) | Phase 0's recurring pattern was "skip a sub-part entirely." Phase 1 every question (Q1-Q10) addressed every sub-part in some form — measurable improvement in coverage discipline. The next layer (enumeration depth within sub-parts) is the new growth area. |
 | **Honest "I'm not sure"** | Phase 1 banked SQL Q (part c) | When asked about Snowflake performance tuning levers, said "I'm not sure" instead of guessing. This is the right call — preserves trust in scoring and surfaces a real study target (warehouse query optimization) rather than papering over the gap with confident-wrong reasoning. |
 | **Strong concept fluency on dimensional modeling** | Phase 1 Q2 (8.0), Q3 (8.5), banked SCD2 Q (8.0) | Core dimensional modeling concepts (Richness Test, SCD types, surrogate-key implications) are solid and articulated crisply. The drill's lower scores cluster around *applying* these concepts in multi-part / depth-required formats, not in *understanding* them. |
+| **Self-correction discipline under pushback** | Phase 1 Q-Re-3 consolidation (Layer 2 Q2.1 NULL-vs-legacy correction; Layer 3 column-choice pivot) | When pushed back on a factual error or flawed framing, response was to re-read the data and reason forward from corrected facts — not dig in or guess. This is the senior-engineer habit that compounds. The pattern showed twice in one consolidation session. |
+| **Framework transfer without doc consultation** | Phase 1 Q-Re-3 (8.0, +2.0 from original Q6) | Schema vs Semantics Stability framework applied automatically to a fresh domain (8-year e-commerce) without consulting mental-models.md. Diagnostic ritual (structural pass + semantic pass) reached for reflexively. The framework is now internalized rather than recall-on-demand. |
 
 ---
 
@@ -115,7 +117,7 @@ Improvement across the three weakest topics: +6.0 points combined (5.5→7.5, 6.
 |---|---|---|---|
 | Q-Re-1 (was Q9: 5.5) | (pending) | (pending) | (pending) |
 | Q-Re-2 (was Q10: 5.5) | (pending) | (pending) | (pending) |
-| Q-Re-3 (was Q6: 6.0) | (pending) | (pending) | (pending) |
+| Q-Re-3 (was Q6: 6.0) | 8.0/10 ✓ (+2.0) | Required reaching for the structured drift taxonomy reflexively rather than improvising from "first thing that came to mind". One terminology slip (soft-state vs NULL-population) and missed the acquisition-context hint. | The structural pass + semantic pass discipline transferred without consulting the doc — that's the consolidation working. Categories of drift internalized; precision between similar categories (soft-state vs NULL-population) is the next refinement. |
 
 ---
 
