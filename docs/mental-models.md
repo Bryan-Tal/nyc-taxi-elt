@@ -22,7 +22,8 @@
 4. [Predict Before You Query](#4-predict-before-you-query)
 5. [Grain First, Schema Second](#5-grain-first-schema-second)
 6. [The Richness Test (When to Build a Dimension)](#6-the-richness-test-when-to-build-a-dimension)
-7. [Schema vs Semantics Stability](#7-schema-vs-semantics-stability)
+11. [Schema vs Semantics Stability](#11-schema-vs-semantics-stability)
+12. [Investigation as Decision Tree](#12-investigation-as-decision-tree)
 
 ### Reasoning About Cost & Scale
 7. [Cost Trade-offs Flip at Scale](#7-cost-trade-offs-flip-at-scale)
@@ -436,7 +437,7 @@ If no — pick a more structured pattern *now*, before instances proliferate.
 
 ---
 
-## 7. Schema vs Semantics Stability
+## 11. Schema vs Semantics Stability
 
 **The model:** A column's *existence* (schema) and a column's *meaning* (semantics) can drift independently across time. A column may always have existed without always having data; data presence may shift due to policy changes, system rollouts, or backfill operations during republishing. Always verify value distributions before assuming a column's meaning is stable across the historical range.
 
@@ -498,6 +499,70 @@ This is why the structural pass alone is insufficient. The temptation is to use 
 - Versioned events (event type names evolve while schema remains stable)
 
 ---
+
+## 12. Investigation as Decision Tree
+
+**The model:** When a data finding surprises you (count differs from expected, distribution doesn't match documentation, an aggregation looks wrong), the senior reflex is to **pause before querying**. The pause does discrete cognitive work: enumerate a hypothesis space first, then design queries that *distinguish between* hypotheses rather than confirm one. The pause prevents confirmation bias on the first plausible explanation.
+
+### Why it works
+
+Most data anomalies have multiple consistent explanations. If you query to test hypothesis #1, you'll likely find evidence consistent with #1 — *and* with #2, #3, #4, because they overlap in observable signals. Confirmation feels like progress, but you've actually filtered out the better answers without seeing them. The decision-tree structure (each query rules in/out specific candidates) is the antidote: queries earn their place by *distinguishing*, not by *confirming*.
+
+### When to apply
+
+- Profiling a new dataset and a count, distribution, or schema property surprises you
+- Validating an ingestion pipeline and outputs don't match expectations
+- Investigating a user-reported bug ("this report number looks wrong")
+- Reviewing an analyst's query that produces suspicious results
+- Any situation where "let me just check X" is the impulse
+
+### The hypothesis-generation checklist (6 canonical categories)
+
+When generating hypotheses for "why doesn't this data match expectations," walk through these six categories. Each surfaces a different mechanism:
+
+| # | Category | Mechanism | Example signal |
+|---|---|---|---|
+| 1 | **Documentation drift** | Doc was correct at some point; data evolved without doc updates | New values appearing only after a date |
+| 2 | **Data quality / human entry** | Typos, casing, whitespace in free-text fields | Many low-count near-duplicates of canonical values |
+| 3 | **Schema misinterpretation** | Column mislabeled, columns swapped, wrong column queried | Values resemble what *another* column should hold |
+| 4 | **Multi-source heterogeneity** | Dataset is union of multiple systems with different taxonomies | Distinct values cluster cleanly when grouped by region/system/business unit |
+| 5 | **Migration artifacts** | Source-system migration left old encoding + new encoding coexisting | Mix of formats (e.g., "1" and "Bronze" in same column) |
+| 6 | **Composite/encoded values** | Column intentionally stores multiple semantic units, but the encoding wasn't expected | Structured patterns like "X-Y" or fixed-length codes; close to category-count × subcategory-count distinct values |
+
+### The distinguishing-query pattern
+
+Once hypotheses exist, queries earn their place by ruling in/out *specific* candidates. The structure: "If I run query Q and see result R, that confirms hypothesis A and rules out B, C, D."
+
+Worked example — `customer_segment` column shows 47 distinct values, doc says 5:
+
+| Query | What it distinguishes |
+|---|---|
+| `SELECT TRIM(LOWER(seg)), COUNT(*) GROUP BY 1` | If normalized count drops to ~5 → category 2 (data quality) confirmed; if still ~47 → rules out category 2 |
+| `SELECT seg, MIN(created_at) GROUP BY seg` | New values appearing post-some-date → category 1 (doc drift); evenly distributed → rules it out |
+| `SELECT seg, COUNT(*) GROUP BY seg ORDER BY 2 DESC` plus inspect tail | Long tail of similar-looking variants → category 2; structured patterns like "Gold-NY" → category 6 |
+| `SELECT region, seg, COUNT(*) GROUP BY 1, 2` | Clean ~5-per-region split → category 4 (multi-source); flat distribution → rules it out |
+| Sample raw rows: `SELECT seg, * FROM table WHERE seg NOT IN (canonical 5) LIMIT 20` | Reveals whether values are typos, codes, composites, or wrong column entirely |
+
+The investigation order matters. Run distinguishing queries by **information gain** — the query that splits the hypothesis space the most goes first.
+
+### Worked example — Phase 1 Q9 ("customer_segment 47 distinct values")
+
+The original answer fixated on hypothesis 3 (schema mislabel) and proposed three queries that all served that one hypothesis. The senior version: enumerate all six categories, then design 4-5 queries each of which rules in/out distinct candidates. Same data, same surprise, fundamentally different investigation quality.
+
+The score gap (5.5 → target 8.5+) reflects exactly this difference: hypothesis fixation vs. structured enumeration.
+
+### Generalizes to
+
+- Debugging production bugs (multiple hypothesis space, distinguishing log queries)
+- Root-cause analysis on outages (the "5 whys" with explicit candidate enumeration at each level)
+- Performance investigations (slow query → CPU? IO? memory? lock contention? — each has a distinguishing diagnostic)
+- Code review on suspicious behavior (multiple ways the bug could be produced; design tests that distinguish between them)
+
+The pattern transfers anywhere the impulse is "let me just check X" — that's the sign you should pause and enumerate first.
+
+---
+
+## How to Add to This File
 
 When a new mental model surfaces in conversation:
 

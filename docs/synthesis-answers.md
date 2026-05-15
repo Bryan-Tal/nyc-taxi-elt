@@ -1232,6 +1232,142 @@ FROM orders GROUP BY 1, 2;
 
 ---
 
+### Phase 1 Re-drill — Round 2 (Q-Re-1, Investigation as Decision Tree)
+
+*Drill date: 2026-05-08. Re-drill of original Q9 (scored 5.5/10). Preceded by full consolidation session (Layers 1-3) plus a mid-round mini-consolidation on hypothesis-fingerprint sharpness when the first re-attempt landed at 7.5. Confidence at final re-attempt: ≥96%.*
+
+#### Q-Re-1 — Profiling Investigation (HR analytics, 327 department codes)
+
+**The question:**
+
+> You're profiling a new HR analytics dataset for a Fortune 500 company. The column `department_code` is documented as a 4-character code (e.g., "FINX", "HRBP", "ENGG"). When you query distinct values, you find 327 distinct codes — some 4 characters, some 3, some 5, some with hyphens, some with numbers.
+>
+> Walk through your investigation plan: (a) what queries would you run in what order, (b) what hypotheses are you testing with each query, and (c) name at least three plausible root causes with the specific data signature each would leave in your query results.
+>
+> **Schema reference:**
+>
+> ```
+> employees
+>   employee_id      INT (PK)
+>   department_code  VARCHAR
+>   hire_date        DATE
+>   region           VARCHAR
+>   business_unit    VARCHAR
+>   manager_id       INT
+> ```
+
+#### Bryan's answer — 8.0/10 ✓ (closes consolidation)
+
+> a.
+> * My first query would split columns that contain a hyphen, and then grouping both sides in order to see if there are signs reminiscent of these being regional codes, department codes, or other distinguishing characteristics.
+> * My second query would run SELECT(DISTINCT(TRIM(LOWER(col)))) to determine if a majority of the distinct values are attributed to typos or user input.
+> * My third query would filter department codes that are not 4 characters, and compare the count to how many are consisting of 4 characters.
+> b.
+> * I am testing the hypothesis of composite/encoded data with query 1, doc drift could also be considered but composite/encoded data is stronger.
+> * I am testing the hypothesis of data quality/user input with query 2
+> * I am testing the hypothesis of schema mislabel with query 3
+> c.
+> * composite/encoded data: either side of hyphen would appear to resemble something similar to a region/department code/role hierarchy code, etc. We would see that the overall count of distinct values collapses if the left/right side of a hyphen coincides with a region, for instance. We would not see a similar count of distinct values.
+> * We would see a strong collapse of distinct values, approximately 30 or so plus data with notable errors, such as typos, after applying normalization.
+> * We would see a large amount of 'department_codes' that are greater or smaller than 4 characters, this could potentially indicate a mislabeling of this column.
+
+| Dimension | Score | Why |
+|---|---|---|
+| Technical Accuracy | 8/10 | Three valid hypotheses; queries align with hypotheses; framework applied throughout. One hypothesis-query mismatch: length-anomaly query in (a3) doesn't uniquely discriminate schema mislabel from composite or data quality |
+| Conceptual Depth | 8/10 | Distinguishing-query design visible; predict-before-query work present; negative-evidence framing applied ("we would not see..."); magnitude awareness ("approximately 30") |
+| Vocabulary Precision | 8/10 | "Composite/encoded," "data quality/user input," "schema mislabel" used correctly. One phrasing slip in composite fingerprint ("we would not see a similar count of distinct values" is unclear) |
+| Trade-off Awareness | 8/10 | Acknowledged competing hypotheses without ignoring them ("doc drift could also be considered but composite/encoded data is stronger") — senior epistemic discipline |
+
+#### Model answer (9/10)
+
+**(a) Investigation queries in order of information gain:**
+
+```sql
+-- Query 1: Normalization-collapse test (data quality discriminator)
+-- Highest information gain because the magnitude tells us a lot in one number
+SELECT
+  COUNT(DISTINCT department_code) AS raw_count,
+  COUNT(DISTINCT TRIM(LOWER(department_code))) AS normalized_count,
+  COUNT(DISTINCT department_code) - COUNT(DISTINCT TRIM(LOWER(department_code))) AS collapse_size
+FROM employees;
+-- Crash from 327→~30 = data quality confirmed
+-- Stays at ~320+ = data quality ruled out; investigate other hypotheses
+
+-- Query 2: Composite structure test
+SELECT
+  SPLIT_PART(department_code, '-', 1) AS prefix,
+  COUNT(DISTINCT SPLIT_PART(department_code, '-', 2)) AS suffix_variety
+FROM employees
+WHERE department_code LIKE '%-%'
+GROUP BY 1 ORDER BY suffix_variety DESC;
+-- If prefix list is small (~30) and each prefix has small suffix variety (~5-10) →
+-- composite confirmed; 30 × 8 ≈ 240 + uncounted non-hyphenated ≈ 327
+
+-- Query 3: Multi-source partition test
+SELECT region, business_unit, COUNT(DISTINCT department_code) AS distinct_codes
+FROM employees
+GROUP BY 1, 2 ORDER BY distinct_codes;
+-- If each (region, unit) group has small consistent set (~30), with codes
+-- differing between groups → multi-source confirmed (partitioned signal)
+
+-- Query 4: Schema mislabel test (inspect non-canonical values for cross-column resemblance)
+SELECT department_code, COUNT(*) AS occurrences
+FROM employees
+WHERE LENGTH(department_code) <> 4
+   OR department_code ~ '[0-9]'
+GROUP BY 1 ORDER BY occurrences DESC LIMIT 50;
+-- If values resemble employee_id (pure integers), job_title phrases, or hire_date
+-- patterns → schema mislabel; if values look like structured codes → ruled out
+
+-- Query 5: Temporal pattern test (migration artifact + doc drift discriminator)
+SELECT
+  YEAR(hire_date),
+  COUNT(DISTINCT department_code) AS codes_in_year,
+  AVG(LENGTH(department_code)) AS avg_length
+FROM employees GROUP BY 1 ORDER BY 1;
+-- Sharp transition at specific year → migration artifact
+-- Gradual increase in distinct codes over time → doc drift
+-- Uniform → both ruled out
+```
+
+**(b) Hypothesis-to-query map:**
+
+| Query | Distinguishes |
+|---|---|
+| 1 | data quality vs. everything else (magnitude of normalization collapse) |
+| 2 | composite/encoded vs. everything else (multiplicative structure on split) |
+| 3 | multi-source vs. doc drift (partitioned vs. uniform signal across groups) |
+| 4 | schema mislabel vs. all structured-code hypotheses (cross-column resemblance) |
+| 5 | migration artifact vs. doc drift (sharp temporal transition vs. gradual evolution) |
+
+**(c) Five+ fingerprints with tight signatures:**
+
+1. **Data quality:** `COUNT(DISTINCT TRIM(LOWER(...)))` crashes from 327 to ~30-50. Order-of-magnitude collapse is the discriminator — composite or multi-source would show only marginal collapse (~5% at most). Absence of structured patterns (no clean hyphenated splits) rules out composite.
+
+2. **Composite/encoded:** Splitting on `-` yields small finite sets on each side (~30 prefixes, ~8 suffixes). 30 × 8 ≈ 240 explains most of the 327 (slight overshoot suggests a third dimension like seniority level). Absence of near-duplicates rules out data quality.
+
+3. **Multi-source heterogeneity:** GROUP BY (region, business_unit) shows each group with a *small, internally-consistent* set of codes (~30 per group), with codes *differing between groups* — partitioned signal. Total distinct = sum of per-group distinct because groups don't overlap.
+
+4. **Schema mislabel:** Non-canonical values resemble *another column's content* — pure integers (employee_id-like), long English phrases (job_title-like), pure dates (hire_date-like). Discriminator from composite: values don't follow a structured composite pattern; from data quality: values aren't near-duplicates of canonical codes.
+
+5. **Migration artifact:** GROUP BY YEAR(hire_date) shows a sharp transition — pre-Year-X codes follow one format, post-Year-X codes follow another. Coexistence of two distinct formats over time, not gradual evolution.
+
+6. **Documentation drift:** GROUP BY YEAR(hire_date) shows gradual, monotonic increase in distinct codes over years. No sharp transition (that would be migration); no partition by region (that would be multi-source); no normalization collapse (that would be data quality).
+
+#### Key lessons
+
+1. **The 327 number itself is evidence.** A senior investigator factors 327 into possible explanations: 30×8 (composite), 327 standalone (doc drift unique values), sum-of-region-clusters (multi-source). The number tells you which hypotheses are arithmetically plausible.
+2. **Information gain orders queries.** The normalization-collapse query rules out the most hypotheses fastest. Run highest-information-gain queries first to narrow the space, then drill in.
+3. **Hypothesis-query mismatches are common gaps.** Length-anomaly is shared by many hypotheses, not specific to schema mislabel. The schema-mislabel-specific signature is cross-column resemblance, not length-deviation.
+4. **Composite encoding is the strongest a-priori candidate for HR department codes.** Large companies frequently encode org structure into codes (ENGG-PLATFORM, HRBP-EMEA). Reaching for it first is senior pattern-matching.
+5. **Mini-consolidation as a recovery pattern.** When a re-drill falls short (7.5), pause to do focused precision-building on the specific gap (fingerprint sharpness) before re-attempting — instead of either accepting the lower score or jumping immediately to another fresh question. This is a meta-skill: surgical correction beats global re-attack.
+
+#### Consolidation status
+
+✅ **CLOSED.** Score 8.0 meets individual threshold. Investigation as Decision Tree framework is internalized and transferable. Confidence: ≥96%. Round 2 of Phase 1 re-drill complete.
+
+---
+
 ## Phase 2 — Ingestion Layer
 
 *Answers will be added as Bryan completes Phase 2's drill.*

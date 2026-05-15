@@ -44,6 +44,7 @@
 | **Strong concept fluency on dimensional modeling** | Phase 1 Q2 (8.0), Q3 (8.5), banked SCD2 Q (8.0) | Core dimensional modeling concepts (Richness Test, SCD types, surrogate-key implications) are solid and articulated crisply. The drill's lower scores cluster around *applying* these concepts in multi-part / depth-required formats, not in *understanding* them. |
 | **Self-correction discipline under pushback** | Phase 1 Q-Re-3 consolidation (Layer 2 Q2.1 NULL-vs-legacy correction; Layer 3 column-choice pivot) | When pushed back on a factual error or flawed framing, response was to re-read the data and reason forward from corrected facts — not dig in or guess. This is the senior-engineer habit that compounds. The pattern showed twice in one consolidation session. |
 | **Framework transfer without doc consultation** | Phase 1 Q-Re-3 (8.0, +2.0 from original Q6) | Schema vs Semantics Stability framework applied automatically to a fresh domain (8-year e-commerce) without consulting mental-models.md. Diagnostic ritual (structural pass + semantic pass) reached for reflexively. The framework is now internalized rather than recall-on-demand. |
+| **Mini-consolidation as recovery pattern** | Phase 1 Q-Re-1 (7.5 first attempt → 8.0 re-attempt) | When the first re-drill attempt landed just short of threshold (7.5), instead of accepting the lower score or jumping immediately to a fresh question, paused for a 10-minute mini-consolidation focused on the specific gap (fingerprint sharpness). Re-attempt with sharper tools cleared 8.0. This is a meta-skill: surgical correction on a named gap beats global re-attack. Mirrors the Phase 0 Q-Re-2 self-directed consolidation pattern at a smaller scale within a single round. |
 
 ---
 
@@ -115,7 +116,7 @@ Improvement across the three weakest topics: +6.0 points combined (5.5→7.5, 6.
 
 | Q# | Score | Why it was hard | Key takeaway |
 |---|---|---|---|
-| Q-Re-1 (was Q9: 5.5) | (pending) | (pending) | (pending) |
+| Q-Re-1 (was Q9: 5.5) | 8.0/10 ✓ (+2.5) | Required building "Investigation as Decision Tree" framework from scratch (no existing mental model entry). First re-attempt landed at 7.5 due to vague fingerprints; recovered via mid-round mini-consolidation on fingerprint-sharpness specifically. Re-attempt scored 8.0 with sharper signatures. | Largest improvement of any Phase 1 re-drill (+2.5). New mental model "Investigation as Decision Tree" added to mental-models.md §12 with 6-category checklist + distinguishing-query pattern. Mini-consolidation as a recovery pattern proves: surgical precision-building beats global re-attack when a re-drill falls just short. |
 | Q-Re-2 (was Q10: 5.5) | (pending) | (pending) | (pending) |
 | Q-Re-3 (was Q6: 6.0) | 8.0/10 ✓ (+2.0) | Required reaching for the structured drift taxonomy reflexively rather than improvising from "first thing that came to mind". One terminology slip (soft-state vs NULL-population) and missed the acquisition-context hint. | The structural pass + semantic pass discipline transferred without consulting the doc — that's the consolidation working. Categories of drift internalized; precision between similar categories (soft-state vs NULL-population) is the next refinement. |
 
@@ -148,6 +149,33 @@ Improvement across the three weakest topics: +6.0 points combined (5.5→7.5, 6.
 ## Phase 6 — Hardest Questions
 
 *To be added at end of Phase 6.*
+
+---
+
+## Phase 1 Wave 2 — Deferred Consolidation Tracker
+
+*Added 2026-05-08. **Phase-1-only exception** to the strict elevated standard. Phase 2 onward enforces strict (every sub-8.0 → consolidation + re-drill before phase advances; no deferrals).*
+
+The Phase 1 drill produced more sub-8.0 questions than the original re-drill plan covered. Rather than block forward momentum with 6+ consecutive consolidation rounds (cognitive load risk; some items naturally re-test through Phase 2/3 implementation), these items are deferred to Wave 2 with explicit trigger conditions. **All Wave 2 items must close before Phase 2 advances to Phase 3.**
+
+| Item | Score | Concept gap | Treatment | Trigger condition |
+|---|---|---|---|---|
+| Q1 (Grain) | 7.0 | Grain-statement precision (single noun phrase, not domain description) | Light consolidation (~1 round) | Phase 2 grain decisions or Phase 3 fact-table design |
+| Q4 (Role-playing SQL) | 7.0 | SQL execution mechanics (alias-as-column, surrogate-vs-natural join, interval arithmetic, group-by-attribute) | Implementation-based re-test | Phase 3 dbt model writing — real role-playing dimension queries |
+| Q5 (Star vs Snowflake) | 7.5 | Depth-per-part on the historical context and cost-benefit math | Light consolidation (~1 round) | Phase 2 STAGING design discussions |
+| Q7 (Type drift) | 7.5 | Concrete failure mode for Option 3 (over-engineering with opportunity cost) | Implementation-based re-test | Phase 2 STAGING dbt models — TRY_CAST patterns |
+| Q8 (Surrogate key failure) | 6.5 | Distinct correctness vs performance failures (one mechanism, two failure types) | Targeted consolidation (~1 round) | Phase 3 SCD2 implementation |
+| RQ-002 (Snowflake perf tuning) | 6.0 | Three areas: is_current trap mechanics, range-filter SQL precision, Snowflake performance fundamentals | Full teaching session + re-drill | Phase 3 query optimization OR quarterly rerun |
+
+**Rules for Wave 2:**
+- Each item gets full consolidation when its trigger fires — not light treatment
+- Re-drill must score ≥8.0 individually to close
+- If a trigger doesn't fire by end of Phase 2 work, the item gets explicit consolidation before Phase 3 advances
+- Items closed in Wave 2 update this table with score and date
+
+**Why Phase 1 gets this exception:** the standard was elevated mid-drill. Applying it retroactively to all sub-8.0 questions would mean 6+ consecutive consolidation rounds on Phase 1 material before Phase 2 starts. Cognitive-load risk degrades consolidation quality. Some items (Q4, Q7) re-test naturally through Phase 2/3 implementation more rigorously than isolated drill questions could. Severity-weighted approach (Wave 1 = ≤6.0; Wave 2 = 6.5-7.5) honors the standard's spirit — every gap gets addressed, but each gets the treatment that matches its severity.
+
+**Phase 2 onward:** strict standard. No Wave 2.
 
 ---
 
